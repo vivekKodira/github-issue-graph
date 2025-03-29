@@ -93,22 +93,22 @@ If your repository doesn't use these custom fields, some charts and insights may
 ## Screenshots
 
 ### Project Overview
-![Project Overview](docs/images/project-overview.png)
 *Track project completion, sprint velocity, and task distribution at a glance*
+![Project Overview](docs/images/project-overview.png)
 
 ### Team Analysis
-![Team Analysis](docs/images/team-analysis.png)
 *Monitor team performance with assignee workload and reviewer contribution charts*
+![Team Analysis](docs/images/team-analysis.png)
 
 ### Pull Requests
-![Pull Requests](docs/images/pull-requests.png)
 *Analyze code review patterns, PR lifecycle, and review quality metrics*
+![Pull Requests](docs/images/pull-requests.png)
 
 ### Issue Graph
+*Visualize issue dependencies and relationships in an interactive network graph*
 ![Issue Graph](docs/images/issue-graph.png)
 ![Issue Graph](docs/images/issue-graph_1.png)
-*Visualize issue dependencies and relationships in an interactive network graph*
 
 ### Insights
-![Insights](docs/images/insights.png)
 *Get automated, color-coded insights about team performance and project trends*
+![Insights](docs/images/insights.png)
