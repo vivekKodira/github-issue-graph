@@ -1,6 +1,6 @@
 # GitHub Issue Graph
 
-I built this React application to help me visualize GitHub repository issues and pull requests through interactive charts and graphs. It helps me understand my team's progress, performance patterns, and code review behaviors. I use it to track sprint velocity, analyze workload distribution, and identify trends in our development process.
+I built this React application using [Cursor](https://www.cursor.com/) to help me visualize GitHub repository issues and pull requests through interactive charts and graphs. It helps me understand my team's progress, performance patterns, and code review behaviors. I use it to track sprint velocity, analyze workload distribution, and identify trends in our development process.
 
 ## Features
 
@@ -11,28 +11,8 @@ I built this React application to help me visualize GitHub repository issues and
 - Issue dependency graph
 - Automated insights generation
 
-## Screenshots
-
-### Project Overview
-![Project Overview](docs/images/project-overview.png)
-*Track project completion, sprint velocity, and task distribution at a glance*
-
-### Team Analysis
-![Team Analysis](docs/images/team-analysis.png)
-*Monitor team performance with assignee workload and reviewer contribution charts*
-
-### Pull Requests
-![Pull Requests](docs/images/pull-requests.png)
-*Analyze code review patterns, PR lifecycle, and review quality metrics*
-
-### Issue Graph
-![Issue Graph](docs/images/issue-graph.png)
-![Issue Graph](docs/images/issue-graph_1.png)
-*Visualize issue dependencies and relationships in an interactive network graph*
-
-### Insights
-![Insights](docs/images/insights.png)
-*Get automated, color-coded insights about team performance and project trends*
+## Demo
+![Demo](docs/images/demo.gif)
 
 ## How to Use
 
@@ -86,11 +66,13 @@ I built this React application to help me visualize GitHub repository issues and
 
 ## Limitations
 
-This application assumes certain custom fields are configured in your GitHub repository:
-- **Sprint**: Used to group tasks into sprints (e.g., "Sprint-1", "Sprint-2")
-- **Size**: Used for task size estimation (e.g., "S", "M", "L")
-- **Estimate (days)**: Planned effort in days
-- **Actual (days)**: Actual effort spent in days
+* This application assumes certain custom fields are configured in your GitHub repository:
+  - **Sprint**: Used to group tasks into sprints (e.g., "Sprint-1", "Sprint-2")
+  - **Size**: Used for task size estimation (e.g., "S", "M", "L")
+  - **Estimate (days)**: Planned effort in days
+  - **Actual (days)**: Actual effort spent in days
+
+* Much of the code in the charts was generated using [Cursor](https://www.cursor.com/). There is scope for better design & refactoring.
 
 These fields are used for:
 - Effort estimation and tracking
@@ -107,3 +89,26 @@ If your repository doesn't use these custom fields, some charts and insights may
    ```bash
    npm install
    ```
+
+## Screenshots
+
+### Project Overview
+![Project Overview](docs/images/project-overview.png)
+*Track project completion, sprint velocity, and task distribution at a glance*
+
+### Team Analysis
+![Team Analysis](docs/images/team-analysis.png)
+*Monitor team performance with assignee workload and reviewer contribution charts*
+
+### Pull Requests
+![Pull Requests](docs/images/pull-requests.png)
+*Analyze code review patterns, PR lifecycle, and review quality metrics*
+
+### Issue Graph
+![Issue Graph](docs/images/issue-graph.png)
+![Issue Graph](docs/images/issue-graph_1.png)
+*Visualize issue dependencies and relationships in an interactive network graph*
+
+### Insights
+![Insights](docs/images/insights.png)
+*Get automated, color-coded insights about team performance and project trends*
