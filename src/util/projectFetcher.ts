@@ -1,12 +1,11 @@
 import { toaster } from "@/components/ui/toaster"
-import { fetchFromCache, updateLocalCache } from "@/util/commonFunctions";
-import issueFetcher from "@/util/issueFetcher.js";
+import { fetchFromCache, updateLocalCache } from "./commonFunctions.js";
+import issueFetcher from "./issueFetcher.js";
+import { convertGraphQLFormat, TaskFormat } from "./taskConverter.js";
 
 
 
-const getCacheName = (project) => {
-    return project ? "localProjectCache" : "localIssuesCache";
-};
+
 const GITHUB_API_URL = "https://api.github.com/graphql";
 
 import {query} from "./github-project-status-query.js";
@@ -88,17 +87,31 @@ const flattenGraphQLResponse = function (response) {
     // Extract top-level fields
     flat["id"] = response.id;
     if (response.content) {
+        // Basic issue fields
         flat["title"] = response.content.title;
         flat["issue_number"] = response.content.number;
         flat["repository"] = response.content.repository?.name;
         flat["repo_owner"] = response.content.repository?.owner?.login;
         flat["labels"] = response.content.labels?.nodes || [];
+        flat["assignees"] = response.content?.assignees?.nodes.map(a => a.login) || [];
         
-        // Extract assignees (comma-separated list)
-        flat["assignees"] = response.content?.assignees?.nodes.map(a => a.login);
+        // New fields from enhanced query
+        flat["body"] = response.content.body;
+        flat["state"] = response.content.state;
+        flat["Status"] = response.content.state === "closed" ? "Done" : "Todo"; // Match taskConverter format
+        flat["html_url"] = response.content.html_url;
+
+        // Process sub-issues into links array
+        flat["links"] = (response.content.subIssues?.nodes || [])
+            .filter(node => node?.source?.number) // Filter out any invalid references
+            .map(node => ({
+                type: "issue",
+                id: node.source.number.toString(),
+                url: node.source.html_url || `https://github.com/${flat["repo_owner"]}/${flat["repository"]}/issues/${node.source.number}`
+            }));
     }
 
-    // Extract fieldValues
+    // Extract fieldValues (custom project fields)
     if (response.fieldValues) {
         response.fieldValues.nodes.forEach(field => {
             if (field.field && field.field.name) {
@@ -118,29 +131,9 @@ const flattenGraphQLResponse = function (response) {
     return flat;
 }
 
-
-function convertTaskFormat(source) {
-    return {
-      id: source.node_id || null,
-      title: source.title || null,
-      issue_number: source.number || null,
-      repository: source.repository_url?.split("/").pop() || null,
-      repo_owner: source.repository_url?.split("/")[4] || null,
-      labels: source.labels?.map((label) => label.name) || [],
-      assignees: source.assignees?.map((assignee) => assignee.login) || [],
-      Title: source.title || null,
-      Status: source.state === "closed" ? "Done" : "Todo",
-      Sprint: null, // Sprint information is not available in the source format
-      Size: null, // Size information is not available in the source format
-      "Estimate (days)": null, // Estimate is not available in the source format
-      "Actual (days)": null, // Actual effort is not available in the source format
-    };
-  }
-
-async function mainScript ({projectID, githubToken, repository, repoOwner}){
+async function mainScript({projectID="", githubToken, repository="", repoOwner}): Promise<TaskFormat[]> {
     try {
-        const cacheName = getCacheName(projectID);
-        let tasks = fetchFromCache(cacheName);
+        let tasks = fetchFromCache({cacheKey: "issues", projectID, repository});
         
         if(tasks) {
             toaster.create({
@@ -154,19 +147,18 @@ async function mainScript ({projectID, githubToken, repository, repoOwner}){
             });
             if(projectID) {
                 const graphqlTasks = await fetchAllProjectTasks(projectID, githubToken)
-                tasks = graphqlTasks.map(flattenGraphQLResponse);
+                tasks = graphqlTasks.map(flattenGraphQLResponse).map(convertGraphQLFormat);
             } else {
                 const tasksResponse = await issueFetcher({repository, githubToken, repoOwner})
-                tasks = tasksResponse.map(convertTaskFormat);
+                tasks = tasksResponse;
             }
-            updateLocalCache(cacheName, tasks);
+            updateLocalCache({projectID, repository, data:tasks, cacheKey: "issues"});
         }
         return tasks;
-       
     } catch(error) {
         console.log("Fetch Error:", error)
+        return [];
     }
-    
 }
 
 export default mainScript;

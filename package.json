@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "anonymize": "node scripts/anonymize.js"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.13.0",
@@ -15,6 +16,7 @@
     "d3": "^7.9.0",
     "echarts": "^5.6.0",
     "echarts-liquidfill": "^3.1.0",
+    "echarts-wordcloud": "^2.1.0",
     "next-themes": "^0.4.6",
     "octokit": "^4.1.2",
     "react": "^19.0.0",

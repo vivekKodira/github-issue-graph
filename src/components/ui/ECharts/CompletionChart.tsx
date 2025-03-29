@@ -16,7 +16,7 @@ export const CompletionChart = ({title, data, styleOptions }) => {
         setChartOptions(chartOptions);
     },[data]);
     return (
-        <div className="chartContainer">
+        <div >
         <Heading>{title}</Heading>
         {chartOptions && (
             <LiquidFillGauge option={chartOptions} style={styleOptions} />

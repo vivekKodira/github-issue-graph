@@ -19,8 +19,11 @@ query ($projectId: ID!, $after: String) {
           id
           content {
             ... on Issue {
-              title,
+              id
+              title
               number
+              body
+              state
               repository {
                 name
                 owner { login }
@@ -32,6 +35,17 @@ query ($projectId: ID!, $after: String) {
                 nodes {
                   name
                   color
+                }
+              }
+              subIssues: timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+                nodes {
+                  ... on CrossReferencedEvent {
+                    source {
+                      ... on Issue {
+                        number
+                      }
+                    }
+                  }
                 }
               }
             }

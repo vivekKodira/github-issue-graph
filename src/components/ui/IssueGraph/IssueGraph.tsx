@@ -1,38 +1,172 @@
-import  "./IssueGraph.css";
-import graphCreator from "./graphCreator.js"
-import issueFetcher from "@/util/issueFetcher.js";
-import { initializeGraph } from "./graph.js";
-import {  Button } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createGraphData } from "./graphCreator";
+import { createGraph } from "./graph";
+import "./IssueGraph.css";
+import { Box, Stack, Text } from "@chakra-ui/react";
 
-
-export const IssueGraph = ({
-    repoOwner,
-    repository,
-    githubToken,
-  }) => {
-    const [loading, setLoading] = useState(false);
-    const isButtonDisabled =!repoOwner ||!repository ||!githubToken;
-    const handleClick = async () => {
-        setLoading(true);
-        const issues = await issueFetcher({repoOwner, repository, githubToken});
-        const graph = graphCreator(issues);
-        initializeGraph(graph);
-        setLoading(false);
-    };
-    return (
-        <>
-            <Button
-                    disabled={isButtonDisabled}
-                    id="render-graph"
-                    loading={loading}
-                    colorPalette="gray"
-                    variant="outline"
-                    onClick={handleClick}
-                  >
-                    Render
-                  </Button>
-            <div id="graph-container"></div>
-        </>
-    )
+interface Issue {
+  id: string;
+  title: string;
+  number: number;
+  body: string;
+  state: string;
+  html_url: string;
+  labels: Array<{ name: string; color: string }>;
+  links?: Array<{
+    type: string;
+    id: string;
+    url: string;
+  }>;
 }
+
+interface PullRequest {
+  id: string;
+  title: string;
+  number: number;
+  body: string;
+  state: string;
+  author: string;
+  assignees: string[];
+  labels: Array<{ name: string; color: string }>;
+  reviewers: string[];
+  reviewStates: string[];
+  reviewComments: Array<{
+    body: string;
+    createdAt: string;
+    author: string;
+    path: string;
+    position: number | null;
+    reviewState: string;
+    reviewAuthor: string;
+  }>;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+}
+
+interface IssueGraphProps {
+  issues: Issue[];
+  prs: PullRequest[];
+}
+
+interface Filters {
+  labels: string[];
+  states: string[];
+}
+
+export const IssueGraph = ({ issues, prs }: IssueGraphProps) => {
+  const graphRef = useRef<HTMLDivElement>(null);
+  const [filters, setFilters] = useState<Filters>({
+    labels: [],
+    states: []
+  });
+
+  // Extract unique labels and states from the data
+  const uniqueLabels = Array.from(new Set(
+    issues.flatMap(issue => (issue.labels || []).map(label => label.name))
+  )).sort();
+
+  const uniqueStates = Array.from(new Set(
+    [...issues, ...prs].map(item => item.state)
+  )).sort();
+
+  // Filter the data based on selected filters
+  const filterData = (issues: Issue[], prs: PullRequest[]) => {
+    let filteredIssues = issues;
+    let filteredPRs = prs;
+
+    if (filters.states.length > 0) {
+      filteredIssues = filteredIssues.filter(issue => 
+        filters.states.includes(issue.state)
+      );
+      filteredPRs = filteredPRs.filter(pr => 
+        filters.states.includes(pr.state)
+      );
+    }
+
+    if (filters.labels.length > 0) {
+      filteredIssues = filteredIssues.filter(issue => 
+        issue.labels?.some(label => filters.labels.includes(label.name))
+      );
+      filteredPRs = filteredPRs.filter(pr => 
+        pr.labels?.some(label => filters.labels.includes(label.name))
+      );
+    }
+
+    return { filteredIssues, filteredPRs };
+  };
+
+  useEffect(() => {
+    if (graphRef.current && issues) {
+      const { filteredIssues, filteredPRs } = filterData(issues, prs);
+      const graphData = createGraphData(filteredIssues, filteredPRs);
+      createGraph(graphRef.current, graphData);
+    }
+  }, [issues, prs, filters]);
+
+  return (
+    <Box>
+      <Stack direction="row" gap={4} mb={4}>
+        <Box>
+          <Text fontSize="sm" mb={1}>Filter by Labels</Text>
+          <select
+            multiple
+            value={filters.labels}
+            onChange={(e) => {
+              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+              setFilters(prev => ({ ...prev, labels: selectedOptions }));
+            }}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid #E2E8F0',
+              fontSize: '14px',
+              width: '200px',
+              height: '120px'
+            }}
+          >
+            {uniqueLabels.map(label => (
+              <option key={label} value={label}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <Text fontSize="xs" mt={1} color="gray.500">
+            Hold Ctrl/Cmd to select multiple
+          </Text>
+        </Box>
+
+        <Box>
+          <Text fontSize="sm" mb={1}>Filter by States</Text>
+          <select
+            multiple
+            value={filters.states}
+            onChange={(e) => {
+              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+              setFilters(prev => ({ ...prev, states: selectedOptions }));
+            }}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid #E2E8F0',
+              fontSize: '14px',
+              width: '200px',
+              height: '120px'
+            }}
+          >
+            {uniqueStates.map(state => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </select>
+          <Text fontSize="xs" mt={1} color="gray.500">
+            Hold Ctrl/Cmd to select multiple
+          </Text>
+        </Box>
+      </Stack>
+
+      <div ref={graphRef} className="graph-container" />
+    </Box>
+  );
+};

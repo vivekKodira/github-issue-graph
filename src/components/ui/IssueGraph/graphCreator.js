@@ -44,45 +44,84 @@ const addLinks = (originalIssue) => {
     return clone;
 };
 
-function createGraphData(issues) {
+export function createGraphData(issues, prs) {
     let graphData = {
         nodes: [],
         links: []
     };
 
     let issueMap = new Map();
+    let prMap = new Map();
 
-    // Create nodes
+    // Create nodes for issues
     issues.forEach(issue => {
         graphData.nodes.push({
             id: issue.number,
             name: issue.title,
-            group: issue.state === "open" ? 1 : 2 // Grouping based on issue state
+            group: issue.state === "open" ? 1 : 2, // Grouping based on issue state
+            type: 'issue',
+            state: issue.state,
+            labels: issue.labels || [],
+            size: issue.Size || 'M' // Default to Medium if no size specified
         });
         issueMap.set(issue.number, issue);
     });
 
-    // Create links
+    // Create nodes for PRs
+    prs.forEach(pr => {
+        graphData.nodes.push({
+            id: `pr_${pr.number}`,
+            name: pr.title,
+            group: pr.state === "open" ? 3 : 4, // Different group for PRs
+            type: 'pr',
+            state: pr.state,
+            labels: pr.labels || []
+        });
+        prMap.set(pr.number, pr);
+    });
+
+    // Create links between issues
     issues.forEach(issue => {
         if (issue.links && issue.links.length > 0) {
             issue.links.forEach(link => {
-                if(link.type == 'issue')  {
+                if(link.type === 'issue')  {
                     graphData.links.push({
                         source: issue.number,
                         target: parseInt(link.id),
-                        value: 1
+                        value: 1,
+                        type: 'issue'
                     });
                 }
             });
         }
     });
 
+    // Create links between PRs and issues
+    prs.forEach(pr => {
+        if (pr.body) {
+            const issueRegex = /#(\d+)/g;
+            const matchedIssues = pr.body.match(issueRegex);
+            if (matchedIssues) {
+                matchedIssues.forEach(issue => {
+                    const issueNumber = parseInt(issue.replace("#", ""));
+                    if (issueMap.has(issueNumber)) {
+                        graphData.links.push({
+                            source: `pr_${pr.number}`,
+                            target: issueNumber,
+                            value: 1,
+                            type: 'pr'
+                        });
+                    }
+                });
+            }
+        }
+    });
+
     return graphData;
 }
 
-export default function main(issues) {
-
-    const filteredIssues = issues.filter(issue=>!issue.pull_request).map((issue) => {
+export default function main(issues, prs) {
+    const filteredIssues = issues.filter(issue => !issue.pull_request).map((issue) => {
         return {
             id: issue.id,
             title: issue.title,
@@ -94,11 +133,11 @@ export default function main(issues) {
         }
     });
     
-    const parsedIssues = filteredIssues.map(issue =>{
+    const parsedIssues = filteredIssues.map(issue => {
         return addLinks(issue);
     });
 
-    const graphData = createGraphData(parsedIssues);
+    const graphData = createGraphData(parsedIssues, prs || []);
 
     const nodes = graphData.nodes.map(node => node.id);
     

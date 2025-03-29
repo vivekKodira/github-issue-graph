@@ -1,5 +1,7 @@
 import barChartTemplate from "./templates/barChartTemplate.js";
-export const processBarChartData = (tasks, key) => {
+import { PROJECT_KEYS } from '../../../config/projectKeys';
+
+export const processBarChartData = (tasks, key, projectKeys) => {
   const chartOptions = JSON.parse(JSON.stringify(barChartTemplate));
 
   const result = {
@@ -17,37 +19,36 @@ export const processBarChartData = (tasks, key) => {
     const value = task[key] || "No Value";
     keyGroup.add(value);
     keyToSizeCount[value] = keyToSizeCount[value] || {};
-    const size = task.Size || "No Size";
+    const size = task[projectKeys[PROJECT_KEYS.SIZE].value] || "No Size";
     sizeTypes.add(size);
-    keyToSizeCount[value][size] =
-      (keyToSizeCount[value][size] || 0) + 1;
-    
+    keyToSizeCount[value][size] = (keyToSizeCount[value][size] || 0) + 1;
   });
 
-  // Prepare stacked chart data for sizes
+  // Prepare chart data - handle both stacked and regular bar charts
   result.stackedBySize.categories = Array.from(keyGroup);
   result.stackedBySize.series = Array.from(sizeTypes).map((size) => {
     return {
       name: size,
       type: "bar",
-      stack: "sizes",
+      ...(sizeTypes.size > 1 ? { stack: "sizes" } : {}),
       data: Array.from(keyGroup).map(
-        (value) =>
-          (keyToSizeCount[value] &&
-            keyToSizeCount[value][size]) ||
-          0
+        (value) => (keyToSizeCount[value] && keyToSizeCount[value][size]) || 0
       ),
       emphasis: {
-        focus: "series",
+        focus: sizeTypes.size > 1 ? "series" : "self",
       },
     };
   });
+
   chartOptions.xAxis.data = result?.stackedBySize?.categories || [];
   chartOptions.series = result?.stackedBySize?.series || [];
+  if(chartOptions.series[0].data.length <=1) {
+    return;
+  }
   return chartOptions;
 };
 
-export const processTasksForECharts = (tasks) => {
+export const processTasksForECharts = (tasks, projectKeys) => {
   // Initialize result object to store all chart data
   const result = {
     totalNumberOfTasks: 0,
@@ -114,10 +115,10 @@ export const processTasksForECharts = (tasks) => {
       return; // Skip incomplete tasks
     }
 
-    result.totalEstimatedEffort += task['Estimate (days)'] || 0;
-    result.totalActualEffort += task['Actual (days)'] || 0;
-    const estimate = task['Estimate (days)'] || 0;
-    const actual = task['Actual (days)'] || 0;
+    result.totalEstimatedEffort += task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value] || 0;
+    result.totalActualEffort += task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value] || 0;
+    const estimate = task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value] || 0;
+    const actual = task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value] || 0;
     
     // Process assignees
     const taskAssignees = task.assignees && task.assignees.length > 0 
@@ -158,7 +159,7 @@ export const processTasksForECharts = (tasks) => {
       }
       
       // Process size for stacked chart
-      const size = task.Size || 'No Size';
+      const size = task[projectKeys[PROJECT_KEYS.SIZE].value] || 'No Size';
       sizeTypes.add(size);
       assigneeToSizeCount[assignee][size] = (assigneeToSizeCount[assignee][size] || 0) + 1;
     });
@@ -178,12 +179,12 @@ export const processTasksForECharts = (tasks) => {
     return {
       name: label,
       type: 'bar',
-      stack: 'labels',
+      ...(labelTypes.size > 1 ? { stack: 'labels' } : {}),
       data: Array.from(assignees).map(assignee => 
         (assigneeToLabelCount[assignee] && assigneeToLabelCount[assignee][label]) || 0
       ),
       emphasis: {
-        focus: 'series'
+        focus: labelTypes.size > 1 ? 'series' : 'self',
       },
     };
   });
@@ -194,12 +195,12 @@ export const processTasksForECharts = (tasks) => {
     return {
       name: size,
       type: 'bar',
-      stack: 'sizes',
+      ...(sizeTypes.size > 1 ? { stack: 'sizes' } : {}),
       data: Array.from(assignees).map(assignee => 
         (assigneeToSizeCount[assignee] && assigneeToSizeCount[assignee][size]) || 0
       ),
       emphasis: {
-        focus: 'series'
+        focus: sizeTypes.size > 1 ? 'series' : 'self',
       },
     };
   });

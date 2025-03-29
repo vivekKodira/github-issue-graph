@@ -3,9 +3,12 @@ export default {
     trigger: 'axis',
     axisPointer: {
       type: 'shadow'
-    }
+    },
   },
   legend: {
+    textStyle: {
+      color: '#ffffff'  // Making the title white
+    },
     // Position the legend at the top of the chart
     top: 0,
     // Or use 'top' for positioning relative to the chart

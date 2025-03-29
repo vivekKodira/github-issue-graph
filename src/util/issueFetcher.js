@@ -1,8 +1,8 @@
 import { Octokit } from "octokit";
 import { toaster } from "../components/ui/toaster"
 import { fetchFromCache, updateLocalCache } from "./commonFunctions";
+import { convertRestApiFormat } from "./taskConverter";
 
-const cacheName = "localIssuesCache";
 async function fetchSubIssues(octokit, issueData, repo_owner, repository) {
   for (const issue of issueData) {
     if (issue.sub_issues_summary?.total > 0) {
@@ -64,12 +64,13 @@ async function fetchFromGithub(octokit, repoOwner, repository) {
 
 
 
-export default async function ({ repoOwner, repository, githubToken }) {
+export default async function ({ repoOwner, repository, githubToken, projectID="" }) {
   const octokit = new Octokit({
     auth: githubToken,
   });
 
-  let issueData = fetchFromCache(cacheName);
+  
+  let issueData = fetchFromCache({projectID, repository, cacheKey: "issues"});
 
   if(issueData) {
     toaster.create({
@@ -80,9 +81,11 @@ export default async function ({ repoOwner, repository, githubToken }) {
   }
   
   issueData = await fetchFromGithub(octokit, repoOwner, repository);
+  
+  // Convert to standard format before caching
+  const standardizedData = issueData.map(convertRestApiFormat);
+  updateLocalCache({projectID, repository, data:standardizedData, cacheKey: "issues"});
 
-  updateLocalCache(cacheName, issueData);
-
-  return issueData;
+  return standardizedData;
 }
 
