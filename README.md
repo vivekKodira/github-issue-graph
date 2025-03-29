@@ -1,0 +1,1 @@
+A simple react application which fetches all the issues in a github repository & displays them in a graph
