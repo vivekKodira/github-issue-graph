@@ -1,6 +1,8 @@
 # GitHub Issue Graph
 
-I built this React application using [Cursor](https://www.cursor.com/) to help me visualize GitHub repository issues and pull requests through interactive charts and graphs. It helps me understand my team's progress, performance patterns, and code review behaviors. I use it to track sprint velocity, analyze workload distribution, and identify trends in our development process.
+I built this React application as a fun project using [Cursor](https://www.cursor.com/) to help me visualize my GitHub project issues and pull requests through interactive charts and graphs. It helps me understand my team's progress, performance patterns, and code review behaviors. I use it to track sprint velocity, analyze workload distribution, and identify trends in our development process. You are welcome to use it. 
+
+It is hosted at https://vivekkodira.github.io/github-issue-graph/
 
 ## Features
 
@@ -23,6 +25,23 @@ I built this React application using [Cursor](https://www.cursor.com/) to help m
    - GitHub Token (required for API access)
 
 2. Click the "Render" button to fetch and display your repository data
+
+## How it works
+* If the user has entered a projectID, GraphQL calls are made to Github's API endpoints
+* If the user has only entered a repository, REST calls are made instead
+* The response is normalised into a flat array & stored in localStorage
+* This flattened array is then parsed & massaged by the various graphs to display various visualisations
+
+```mermaid
+flowchart TD
+    A[User Input] -->|Project ID Entered| B[GraphQL Calls to GitHub API]
+    A -->|Only Repository Entered| C[REST Calls to GitHub API]
+    B --> D[Response Normalized into Flat Array]
+    C --> D
+    D --> E[Stored in localStorage]
+    E --> F[Parsed and Massaged by Graphs]
+    F --> G[Various Visualizations Displayed]
+```
 
 ## Dashboard Tabs
 
@@ -66,13 +85,13 @@ I built this React application using [Cursor](https://www.cursor.com/) to help m
 
 ## Limitations
 
+* Much of the code in the charts was generated using [Cursor](https://www.cursor.com/). There is scope for better design & refactoring.
+
 * This application assumes certain custom fields are configured in your GitHub repository:
   - **Sprint**: Used to group tasks into sprints (e.g., "Sprint-1", "Sprint-2")
   - **Size**: Used for task size estimation (e.g., "S", "M", "L")
   - **Estimate (days)**: Planned effort in days
   - **Actual (days)**: Actual effort spent in days
-
-* Much of the code in the charts was generated using [Cursor](https://www.cursor.com/). There is scope for better design & refactoring.
 
 These fields are used for:
 - Effort estimation and tracking
@@ -88,6 +107,10 @@ If your repository doesn't use these custom fields, some charts and insights may
 2. Install dependencies:
    ```bash
    npm install
+   ```
+3. Run:
+   ```bash
+   npm run dev
    ```
 
 ## Screenshots
