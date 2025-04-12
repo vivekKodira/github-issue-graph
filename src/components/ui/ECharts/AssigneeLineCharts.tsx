@@ -4,15 +4,6 @@ import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { LuTrendingDown } from "react-icons/lu";
 
-const SIZE_WEIGHTS = {
-  "XS": 1,
-  "S": 2,
-  "M": 3,
-  "L": 5,
-  "XL": 8,
-  "XXL": 13,
-};
-
 export const createLineChartData = (tasks, projectKeys) => {
   const sprintData = {};
   const assigneeData = {};
@@ -28,9 +19,10 @@ export const createLineChartData = (tasks, projectKeys) => {
       return; // Skip tasks with no sprint
     }
 
-    // Get task weight based on size
-    const taskSize = task[projectKeys[PROJECT_KEYS.SIZE].value] || "No Size";
-    const weight = SIZE_WEIGHTS[taskSize] || 1;
+    // Get task weight based on actual days or estimate days
+    const actualDays = task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value];
+    const estimateDays = task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value];
+    const weight = actualDays || estimateDays || 1; // Default to 1 if neither is available
 
     // Process assignees
     const taskAssignees = task.assignees && task.assignees.length > 0
@@ -101,7 +93,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
         if (currentValue < previousValue) {
           const decrease = ((previousValue - currentValue) / previousValue * 100).toFixed(1);
           insights.push({
-            text: `${series.name}'s weighted task value decreased by ${decrease}% in ${currentSprint} compared to ${previousSprint}`,
+            text: `${series.name}'s task value decreased by ${decrease}% in ${currentSprint} compared to ${previousSprint}`,
             icon: LuTrendingDown
           });
         }
@@ -128,7 +120,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     // Create options for all assignees chart
     const allAssigneesOptions = {
       title: {
-        text: "All Assignees Weighted Tasks per Sprint",
+        text: "All Assignees Tasks per Sprint",
         left: "center",
         top: 0,
         textStyle: {
@@ -156,7 +148,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
       },
       yAxis: {
         type: "value",
-        name: "Weighted Task Value",
+        name:  "Task Value",
       },
       series: filteredAssigneeSeries,  // Only include filtered assignee series
     };
@@ -164,7 +156,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     // Create options for individual assignee charts
     const individualCharts = filteredAssigneeSeries.map((series) => ({
       title: {
-        text: `Weighted Tasks per Sprint - ${series.name}`,
+        text: `Tasks per Sprint - ${series.name}`,
         left: "center",
         textStyle: {
           color: '#ffffff'
@@ -179,7 +171,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
       },
       yAxis: {
         type: "value",
-        name: "Weighted Task Value",
+        name: "Task Value",
       },
       series: [series],
     }));
