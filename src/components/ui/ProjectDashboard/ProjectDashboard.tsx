@@ -76,6 +76,7 @@ export const ProjectDashboard = ({
   project,
   repository,
   githubToken,
+  openaiApiKey,
   plannedEffortForProject,
 }) => {
   const { projectKeys } = useProjectKeys();
@@ -290,6 +291,7 @@ export const ProjectDashboard = ({
                     <ReviewWordCloudChart
                       prs={prs}
                       styleOptions={styleOptions}
+                      openaiApiKey={openaiApiKey}
                     />
                   </Box>
                 </VStack>

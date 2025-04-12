@@ -12,6 +12,7 @@ function RepoConfiguration({
   repository: initialRepository,
   project: initialProject,
   githubToken: initialGithubToken,
+  openaiApiKey: initialOpenaiApiKey,
   plannedEffortForProject: initialPlannedEffortForProject,
   addConfiguration,
 }) {
@@ -20,6 +21,7 @@ function RepoConfiguration({
   const [repository, setRepository] = useState(initialRepository || "");
   const [project, setProject] = useState(initialProject || "");
   const [githubToken, setGithubToken] = useState(initialGithubToken || "");
+  const [openaiApiKey, setOpenaiApiKey] = useState(initialOpenaiApiKey || "");
   const [plannedEffortForProject, setPlannedEffortForProject] = useState(initialPlannedEffortForProject || 0);
 
   useEffect(() => {
@@ -27,8 +29,9 @@ function RepoConfiguration({
     setRepository(initialRepository);
     setProject(initialProject);
     setGithubToken(initialGithubToken);
+    setOpenaiApiKey(initialOpenaiApiKey);
     setPlannedEffortForProject(initialPlannedEffortForProject);
-  }, [initialRepoOwner, initialRepository, initialProject, initialGithubToken, initialPlannedEffortForProject]);
+  }, [initialRepoOwner, initialRepository, initialProject, initialGithubToken, initialOpenaiApiKey, initialPlannedEffortForProject]);
 
   const handleProjectKeyChange = (key: string, value: string) => {
     const updatedKeys: Record<string, ProjectKeyConfig> = {
@@ -52,7 +55,8 @@ function RepoConfiguration({
     addConfiguration({ 
       repoOwner, 
       repository, 
-      githubToken, 
+      githubToken,
+      openaiApiKey, 
       project, 
       plannedEffortForProject,
       projectKeys 
@@ -65,6 +69,7 @@ function RepoConfiguration({
     setRepository("");
     setProject("");
     setGithubToken("");
+    setOpenaiApiKey("");
     setPlannedEffortForProject(0);
     setProjectKeys(PROJECT_KEY_CONFIGS);
     
@@ -132,6 +137,17 @@ function RepoConfiguration({
                 onChange={(evt) => setGithubToken(evt.target.value)}
               />
               <Text fontSize="sm" color="gray.500" mt={1}>Enter your GitHub personal access token</Text>
+            </Field.Root>
+            <Field.Root w="100%">
+              <Field.Label>
+                OpenAI API Key
+              </Field.Label>
+              <PasswordInput
+                placeholder="OpenAI API Key"
+                value={openaiApiKey}
+                onChange={(evt) => setOpenaiApiKey(evt.target.value)}
+              />
+              <Text fontSize="sm" color="gray.500" mt={1}>Enter your OpenAI API key for enhanced word cloud processing</Text>
             </Field.Root>
             <Field.Root w="100%">
               <Field.Label>

@@ -10,20 +10,23 @@ function App() {
   const [repository, setRepository] = useState("");
   const [project, setProject] = useState("");
   const [githubToken, setGithubToken] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [plannedEffortForProject, setPlannedEffortForProject] = useState(0);
 
   useEffect(() => {
     setRepoOwner(localStorage.getItem("repoOwner") || "");
     setRepository(localStorage.getItem("repository") || "");
     setGithubToken(localStorage.getItem("githubToken") || "");
+    setOpenaiApiKey(localStorage.getItem("openaiApiKey") || "");
     setProject(localStorage.getItem("project") || "");
     setPlannedEffortForProject(Number(localStorage.getItem("plannedEffortForProject")) || 0);
   },[]);
 
-  const addConfiguration = async ({ repoOwner, repository, githubToken, project, plannedEffortForProject, projectKeys }) => {
+  const addConfiguration = async ({ repoOwner, repository, githubToken, openaiApiKey, project, plannedEffortForProject, projectKeys }) => {
     localStorage.setItem("repoOwner", repoOwner);
     localStorage.setItem("repository", repository);
     localStorage.setItem("githubToken", githubToken);
+    localStorage.setItem("openaiApiKey", openaiApiKey);
     localStorage.setItem("project", project);
     localStorage.setItem("plannedEffortForProject", plannedEffortForProject);
     localStorage.setItem("projectKeys", JSON.stringify(projectKeys));
@@ -31,6 +34,7 @@ function App() {
     setRepoOwner(repoOwner);
     setRepository(repository);
     setGithubToken(githubToken);
+    setOpenaiApiKey(openaiApiKey);
     setProject(project);
     setPlannedEffortForProject(plannedEffortForProject);
   };
@@ -43,6 +47,7 @@ function App() {
         repository={repository}
         project={project}
         githubToken={githubToken}
+        openaiApiKey={openaiApiKey}
         plannedEffortForProject={plannedEffortForProject}
         addConfiguration={addConfiguration}
       />
@@ -51,6 +56,7 @@ function App() {
         project={project}
         repository={repository}
         githubToken={githubToken}
+        openaiApiKey={openaiApiKey}
         plannedEffortForProject={plannedEffortForProject}
       />
     </ProjectKeysProvider>
