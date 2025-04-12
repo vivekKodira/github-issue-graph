@@ -41,41 +41,49 @@ interface ProjectItemsResponse {
 
 // Fetch tasks in a GitHub ProjectV2 with pagination
 async function fetchAllProjectTasks(projectId: string, githubToken: string): Promise<ProjectItem[]> {
-    let tasks: ProjectItem[] = [];
+    const tasks: ProjectItem[] = [];
     let hasNextPage = true;
     let endCursor: string | null = null;
 
     while (hasNextPage) {
-
         const variables = { projectId, after: endCursor };
         const body = JSON.stringify({ query, variables });
 
-        // console.log(`query: [${body}]`);
+        try {
+            const response = await fetch(GITHUB_API_URL, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${githubToken}`,
+                    "Content-Type": "application/json"
+                },
+                body
+            });
 
-        const response = await fetch(GITHUB_API_URL, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${githubToken}`,
-                "Content-Type": "application/json"
-            },
-            body
-        });
+            if (!response.ok) {
+                throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+            }
 
-        const data: ProjectItemsResponse = await response.json();
+            const data: ProjectItemsResponse = await response.json();
 
-        if (data.errors) {
-            console.error("GraphQL Errors:", data.errors);
-            return tasks;
+            if (data.errors) {
+                console.error("GraphQL Errors:", data.errors);
+                throw new Error(`GraphQL errors: ${data.errors.map(e => e.message).join(', ')}`);
+            }
+
+            const items = data.data?.node.items;
+            if (!items) {
+                console.warn("No items found in response");
+                break;
+            }
+
+            tasks.push(...items.nodes);
+
+            hasNextPage = items.pageInfo.hasNextPage;
+            endCursor = items.pageInfo.endCursor;
+        } catch (error) {
+            console.error("Error fetching project tasks:", error);
+            throw error;
         }
-
-        const items = data.data?.node.items;
-        if (!items) break;
-
-        tasks = tasks.concat(items.nodes);
-
-        // Update pagination info
-        hasNextPage = items.pageInfo.hasNextPage;
-        endCursor = items.pageInfo.endCursor;
     }
 
     return tasks;
@@ -133,30 +141,44 @@ const flattenGraphQLResponse = function (response) {
 
 async function mainScript({projectID="", githubToken, repository="", repoOwner}): Promise<TaskFormat[]> {
     try {
-        let tasks = fetchFromCache({cacheKey: "issues", projectID, repository});
+        const cacheKey = "issues";
+        const cachedTasks = fetchFromCache({cacheKey, projectID, repository});
         
-        if(tasks) {
+        if(cachedTasks) {
             toaster.create({
                 description: `Fetched tasks from cache`,
                 type: "info",
             });
-        } else {
-            toaster.create({
-                description: `Fetched tasks from Github`,
-                type: "info",
-            });
-            if(projectID) {
-                const graphqlTasks = await fetchAllProjectTasks(projectID, githubToken)
-                tasks = graphqlTasks.map(flattenGraphQLResponse).map(convertGraphQLFormat);
-            } else {
-                const tasksResponse = await issueFetcher({repository, githubToken, repoOwner})
-                tasks = tasksResponse;
-            }
-            updateLocalCache({projectID, repository, data:tasks, cacheKey: "issues"});
+            return cachedTasks;
         }
-        return tasks;
+
+        toaster.create({
+            description: `Fetching tasks from Github`,
+            type: "info",
+        });
+
+        let fetchedTasks: TaskFormat[];
+        if(projectID) {
+            const graphqlTasks = await fetchAllProjectTasks(projectID, githubToken);
+            fetchedTasks = graphqlTasks.map(flattenGraphQLResponse).map(convertGraphQLFormat);
+        } else {
+            fetchedTasks = await issueFetcher({repository, githubToken, repoOwner});
+        }
+
+        if (fetchedTasks && fetchedTasks.length > 0) {
+            console.log(`Successfully fetched ${fetchedTasks.length} tasks from GitHub`);
+            updateLocalCache({projectID, repository, data: fetchedTasks, cacheKey});
+        } else {
+            console.warn("No tasks fetched from GitHub");
+        }
+
+        return fetchedTasks;
     } catch(error) {
-        console.log("Fetch Error:", error)
+        console.error("Fetch Error:", error);
+        toaster.create({
+            description: "Error fetching tasks. Please try again.",
+            type: "error",
+        });
         return [];
     }
 }

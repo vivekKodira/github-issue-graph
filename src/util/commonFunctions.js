@@ -1,40 +1,64 @@
 import tasksSample from '../samples/tasks.json';
 import prsSample from '../samples/prs.json';
 
+const CACHE_VERSION = '1.0';
+const CACHE_TTL_HOURS = 1;
+
 function isCacheInvalid(localIssuesCache) {
   let cacheInvalid = true;
   try {
     const lastUpdated = localIssuesCache?.lastUpdated;
-    if (lastUpdated) {
-      const lastUpdatedDate = new Date(lastUpdated);
-      const currentDate = new Date();
-      const diffTime = Math.abs(currentDate - lastUpdatedDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60));
-      if (diffDays < 1) {
-        cacheInvalid = false;
-      }
+    const version = localIssuesCache?.version;
+    
+    if (!lastUpdated || !version) {
+      console.log('Cache invalid: missing lastUpdated or version');
+      return true;
+    }
+
+    if (version !== CACHE_VERSION) {
+      console.log(`Cache invalid: version mismatch. Expected ${CACHE_VERSION}, got ${version}`);
+      return true;
+    }
+    
+    const lastUpdatedDate = new Date(lastUpdated);
+    const currentDate = new Date();
+    const diffTime = Math.abs(currentDate - lastUpdatedDate);
+    const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+    
+    console.log(`Cache age: ${diffHours} hours, TTL: ${CACHE_TTL_HOURS} hours`);
+    
+    if (diffHours <= CACHE_TTL_HOURS) {
+      cacheInvalid = false;
+    } else {
+      console.log('Cache invalid: expired');
     }
   } catch (error) {
-    console.error("Error fetching from cache", error);
+    console.error("Error checking cache validity:", error);
   }
   return cacheInvalid;
 }
 
-function getCacheName(cacheKey,repository, projectID) {
-  return `${cacheKey}-${projectID}-${repository}`;
+function getCacheName(cacheKey, repository, projectID) {
+  // Ensure projectID is always a string, even if undefined
+  const safeProjectID = projectID || 'no-project';
+  const name = `${cacheKey}-${safeProjectID}-${repository}`;
+  console.log(`Generated cache name: ${name}`);
+  return name;
 }
 
 export const updateLocalCache = ({projectID, repository, data, cacheKey}) => {
   try {
-    const name = getCacheName(cacheKey,repository, projectID);
+    const name = getCacheName(cacheKey, repository, projectID);
     const localCache = {
       data: data,
       lastUpdated: new Date().toISOString(),
+      version: CACHE_VERSION
     };
   
     localStorage.setItem(name, JSON.stringify(localCache));
+    console.log(`Cache updated for key: ${name} at ${localCache.lastUpdated}`);
   } catch(error) {
-    console.error("Error storing into cache", error);
+    console.error("Error storing into cache:", error);
   }
 }
 
@@ -42,19 +66,47 @@ export const fetchFromCache = ({projectID, repository, cacheKey}) => {
   // Check if we're in demo mode
   const isDemoMode = localStorage.getItem('demo_mode') === 'true';
   if (isDemoMode) {
+    console.log('Using demo mode data');
     if(cacheKey === "issues") {
       return tasksSample;
     } else if(cacheKey === "prs") {
       return prsSample;
     }
   }
-  const name = getCacheName(cacheKey,repository, projectID);
-  let localIssuesCache = JSON.parse(localStorage.getItem(name));
+
+  const name = getCacheName(cacheKey, repository, projectID);
+  let localIssuesCache;
   
-  if (!localIssuesCache || isCacheInvalid(localIssuesCache) || !localIssuesCache?.data) {
+  try {
+    const cacheStr = localStorage.getItem(name);
+    if (!cacheStr) {
+      console.log(`No cache found for key: ${name}`);
+      return;
+    }
+    
+    localIssuesCache = JSON.parse(cacheStr);
+    console.log(`Found cache for ${name} with version ${localIssuesCache?.version} and lastUpdated ${localIssuesCache?.lastUpdated}`);
+    
+    if (!localIssuesCache) {
+      console.log(`Cache invalid: null cache object for ${name}`);
+      return;
+    }
+    
+    if (!localIssuesCache.data) {
+      console.log(`Cache invalid: missing data for ${name}`);
+      return;
+    }
+    
+    if (isCacheInvalid(localIssuesCache)) {
+      console.log(`Cache invalid: failed validation for ${name}`);
+      return;
+    }
+    
+    console.log(`Cache hit for key: ${name}`);
+    return localIssuesCache.data;
+  } catch (error) {
+    console.error(`Error fetching from cache for key ${name}:`, error);
     return;
   }
-  
-  return localIssuesCache.data;
 }
 
