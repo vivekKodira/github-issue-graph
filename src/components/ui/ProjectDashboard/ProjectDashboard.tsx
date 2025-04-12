@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import {
   VStack,
   Box,
@@ -91,47 +91,78 @@ export const ProjectDashboard = ({
 
   const [plannedTaskCompletionData, setPlannedTaskCompletionData] = useState(0);
   const [overallTaskCompletionData, setOverallTaskCompletionData] = useState(0);
+  const [activeTab, setActiveTab] = useState("overview");
 
-  const styleOptions = {
+  const styleOptions = useMemo(() => ({
     width: "100%",
     height: "500px",
-  };
+  }), []);
+
   const handleClick = async () => {
     setLoading(true);
-    const flattenedTasks = await fetchProjectDetails({
-      projectID: project,
-      repoOwner: repoOwner,
-      repository: repository,
-      githubToken: githubToken,
-    });
-    const prs = await fetchPRs({
-      repoOwner: repoOwner,
-      repository: repository,
-      githubToken: githubToken,
-    });
-    console.log("flattenedTasks", flattenedTasks);
-    console.log("prs", prs);
-    setFlattenedData(flattenedTasks);
-    setPRs(prs);
-    setPlannedTaskCompletionData(
-      fetchPlannedTaskCompletedData(flattenedTasks, projectKeys)
-    );
-    setOverallTaskCompletionData(
-      fetchoverAllCompletedData(
-        flattenedTasks,
-        plannedEffortForProject,
-        projectKeys
-      )
-    );
-    setInsights([]);
-    insightsRef.current = [];
-    setLoading(false);
+    try {
+      const [flattenedTasks, fetchedPRs] = await Promise.all([
+        fetchProjectDetails({
+          projectID: project,
+          repoOwner: repoOwner,
+          repository: repository,
+          githubToken: githubToken,
+        }),
+        fetchPRs({
+          repoOwner: repoOwner,
+          repository: repository,
+          githubToken: githubToken,
+        })
+      ]);
+
+      // Only update states if the data has actually changed
+      if (JSON.stringify(flattenedTasks) !== JSON.stringify(flattenedData)) {
+        setFlattenedData(flattenedTasks);
+        setPlannedTaskCompletionData(
+          fetchPlannedTaskCompletedData(flattenedTasks, projectKeys)
+        );
+        setOverallTaskCompletionData(
+          fetchoverAllCompletedData(
+            flattenedTasks,
+            plannedEffortForProject,
+            projectKeys
+          )
+        );
+      }
+
+      // Only update PRs if the data has actually changed
+      const currentPRsString = JSON.stringify(prs);
+      const newPRsString = JSON.stringify(fetchedPRs);
+      if (currentPRsString !== newPRsString) {
+        console.log('PRs data changed, updating state');
+        setPRs(fetchedPRs);
+      } else {
+        console.log('PRs data unchanged, skipping update');
+      }
+
+      setInsights([]);
+      insightsRef.current = [];
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInsightsGenerated = useCallback((newInsights: Insight[]) => {
     insightsRef.current = [...insightsRef.current, ...newInsights];
     setInsights(insightsRef.current);
   }, []);
+
+  const handleTabChange = useCallback((details: { value: string }) => {
+    setActiveTab(details.value);
+  }, []);
+
+  // Memoize the PRs data to prevent unnecessary re-renders
+  const memoizedPRs = useMemo(() => {
+    console.log('Memoizing PRs data');
+    return prs;
+  }, [JSON.stringify(prs)]);
 
   return (
     <VStack align="stretch" width="100%">
@@ -150,7 +181,7 @@ export const ProjectDashboard = ({
 
       {flattenedData && (
         <Box width="100%">
-          <Tabs.Root defaultValue="overview">
+          <Tabs.Root defaultValue="overview" value={activeTab} onValueChange={handleTabChange}>
             <Tabs.List>
               <Tabs.Trigger value="overview">Project Overview</Tabs.Trigger>
               <Tabs.Trigger value="team">Team Analysis</Tabs.Trigger>
@@ -192,7 +223,7 @@ export const ProjectDashboard = ({
                 <Box>
                   <SprintVelocityChart
                     flattenedData={flattenedData}
-                    prs={prs}
+                    prs={memoizedPRs}
                     styleOptions={styleOptions}
                     onInsightsGenerated={handleInsightsGenerated}
                   />
@@ -280,16 +311,16 @@ export const ProjectDashboard = ({
               <Box p={6} borderRadius="lg" borderWidth="1px">
                 <VStack gap={6} align="stretch">
                   <SimpleGrid columns={{ base: 1, md: 1 }} gap={6}>
-                    <PRReviewChart prs={prs} styleOptions={styleOptions} />
-                    <PRLifecycleChart prs={prs} styleOptions={styleOptions} />
+                    <PRReviewChart prs={memoizedPRs} styleOptions={styleOptions} />
+                    <PRLifecycleChart prs={memoizedPRs} styleOptions={styleOptions} />
                   </SimpleGrid>
                   <SimpleGrid columns={{ base: 1, md: 1 }} gap={6}>
-                    <CodeChurnChart prs={prs} styleOptions={styleOptions} />
-                    <ReviewQualityChart prs={prs} styleOptions={styleOptions} />
+                    <CodeChurnChart prs={memoizedPRs} styleOptions={styleOptions} />
+                    <ReviewQualityChart prs={memoizedPRs} styleOptions={styleOptions} />
                   </SimpleGrid>
                   <Box>
                     <ReviewWordCloudChart
-                      prs={prs}
+                      prs={memoizedPRs}
                       styleOptions={styleOptions}
                       openaiApiKey={openaiApiKey}
                     />
@@ -301,7 +332,7 @@ export const ProjectDashboard = ({
             {/* Issue Graph Tab */}
             <Tabs.Content value="issues">
               <Box p={6} borderRadius="lg" borderWidth="1px">
-                <IssueGraph issues={flattenedData} prs={prs} />
+                <IssueGraph issues={flattenedData} prs={memoizedPRs} />
               </Box>
             </Tabs.Content>
 
