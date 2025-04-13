@@ -1,6 +1,6 @@
 import { ECharts } from "@/components/ui/ECharts/ECharts.js";
-import { useState, useEffect } from "react";
-import { Box } from "@chakra-ui/react";
+import { useState, useEffect, useMemo } from "react";
+import { Box, HStack, Text, Select, createListCollection } from "@chakra-ui/react";
 import pieChartTemplate from "./templates/pieChartTemplate.js";
 
 interface ReviewComment {
@@ -45,6 +45,18 @@ export const createReviewerPieChartData = (prs: PullRequest[]) => {
 
 export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) => {
   const [chartOptions, setChartOptions] = useState(pieChartTemplate);
+  const [filteredReviewers, setFilteredReviewers] = useState<string[]>([]);
+  const [allReviewers, setAllReviewers] = useState<string[]>([]);
+
+  // Create the collection for the Select component
+  const collection = useMemo(() => {
+    return createListCollection({
+      items: allReviewers.map(reviewer => ({
+        label: reviewer,
+        value: reviewer
+      }))
+    });
+  }, [allReviewers]);
 
   useEffect(() => {
     if (!flattenedData?.length) {
@@ -54,12 +66,18 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
 
     const pieData = createReviewerPieChartData(flattenedData);
     
-    // Filter data based on search term
-    const filteredData = searchTerm
-      ? pieData.filter(item => 
-          item.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : pieData;
+    // Update all reviewers list
+    const reviewers = pieData.map(item => item.name);
+    setAllReviewers(reviewers);
+    
+    // Filter data based on search term and filtered reviewers
+    const filteredData = pieData.filter(item => {
+      const matchesSearch = !searchTerm || 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = filteredReviewers.length === 0 || 
+        filteredReviewers.includes(item.name);
+      return matchesSearch && matchesFilter;
+    });
     
     const options = JSON.parse(JSON.stringify(pieChartTemplate));
     options.title = {
@@ -83,10 +101,40 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
     }];
 
     setChartOptions(options);
-  }, [flattenedData, searchTerm]);
+  }, [flattenedData, searchTerm, filteredReviewers]);
 
   return (
     <Box>
+      <HStack marginBottom={4} gap={4}>
+        <Text color="white">Select reviewers:</Text>
+        <Select.Root
+          multiple
+          value={filteredReviewers}
+          onValueChange={(details) => setFilteredReviewers(details.value)}
+          width="300px"
+          collection={collection}
+        >
+          <Select.HiddenSelect />
+          <Select.Control>
+            <Select.Trigger>
+              <Select.ValueText placeholder="Select reviewers" />
+            </Select.Trigger>
+            <Select.IndicatorGroup>
+              <Select.Indicator />
+            </Select.IndicatorGroup>
+          </Select.Control>
+          <Select.Positioner>
+            <Select.Content>
+              {collection.items.map((item) => (
+                <Select.Item key={item.value} item={item}>
+                  {item.label}
+                  <Select.ItemIndicator />
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Positioner>
+        </Select.Root>
+      </HStack>
       <ECharts option={chartOptions} style={styleOptions} />
     </Box>
   );

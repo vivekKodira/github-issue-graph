@@ -2,18 +2,33 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
-import { LuTrendingDown } from "react-icons/lu";
 
-export const SprintVelocityChart = ({ flattenedData, prs, styleOptions, onInsightsGenerated }) => {
+interface SprintData {
+    completedTasks: number;
+    effort: number;
+}
+
+interface SprintInsight {
+    text: string;
+    severity: number;
+}
+
+export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGenerated }) => {
     const { projectKeys } = useProjectKeys();
     const [chartOptions, setChartOptions] = useState(null);
+    const [previousInsights, setPreviousInsights] = useState<SprintInsight[]>([]);
 
-    // Add effect for insights generation
     useEffect(() => {
-        if (!flattenedData?.length) return;
+        if (!flattenedData?.length) {
+            setChartOptions(null);
+            if (onInsightsGenerated) {
+                onInsightsGenerated([]);
+            }
+            return;
+        }
 
-        const sprintData = {};
-        const sprints = new Set();
+        const sprintData: Record<string, SprintData> = {};
+        const sprints = new Set<string>();
 
         // Process tasks by sprint
         flattenedData.forEach(task => {
@@ -31,13 +46,13 @@ export const SprintVelocityChart = ({ flattenedData, prs, styleOptions, onInsigh
             }
             
             sprintData[sprint].completedTasks++;
-            sprintData[sprint].effort += task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value] || 0;
+            sprintData[sprint].effort += Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0;
         });
 
         const sortedSprints = Array.from(sprints).sort();
         
         // Generate insights from chart data
-        const insights = [];
+        const insights: SprintInsight[] = [];
         if (sortedSprints.length >= 2) {
             const currentSprint = sortedSprints[sortedSprints.length - 1];
             const previousSprint = sortedSprints[sortedSprints.length - 2];
@@ -47,9 +62,11 @@ export const SprintVelocityChart = ({ flattenedData, prs, styleOptions, onInsigh
             const previousTasks = sprintData[previousSprint].completedTasks;
             if (currentTasks < previousTasks) {
                 const decrease = ((previousTasks - currentTasks) / previousTasks * 100).toFixed(1);
+                // Calculate severity based on percentage decrease
+                const severity = -Math.min(5, Math.max(1, Math.floor(Number(decrease) / 20))); // -1 to -5 based on 20% intervals
                 insights.push({
                     text: `Sprint velocity decreased by ${decrease}% in ${currentSprint} compared to ${previousSprint} (${currentTasks} vs ${previousTasks} tasks)`,
-                    icon: LuTrendingDown
+                    severity
                 });
             }
             
@@ -58,42 +75,22 @@ export const SprintVelocityChart = ({ flattenedData, prs, styleOptions, onInsigh
             const previousEffort = sprintData[previousSprint].effort;
             if (currentEffort < previousEffort) {
                 const decrease = ((previousEffort - currentEffort) / previousEffort * 100).toFixed(1);
+                // Calculate severity based on percentage decrease
+                const severity = -Math.min(5, Math.max(1, Math.floor(Number(decrease) / 20))); // -1 to -5 based on 20% intervals
                 insights.push({
                     text: `Sprint effort decreased by ${decrease}% in ${currentSprint} compared to ${previousSprint} (${currentEffort.toFixed(1)} vs ${previousEffort.toFixed(1)} days)`,
-                    icon: LuTrendingDown
+                    severity
                 });
             }
         }
 
-        if (onInsightsGenerated) {
+        // Only update insights if they've changed
+        if (onInsightsGenerated && JSON.stringify(insights) !== JSON.stringify(previousInsights)) {
             onInsightsGenerated(insights);
+            setPreviousInsights(insights);
         }
-    }, [flattenedData, projectKeys, onInsightsGenerated]);
 
-    useEffect(() => {
-        if (!flattenedData?.length) return;
-
-        // Group tasks by sprint
-        const sprintData = flattenedData.reduce((acc, task) => {
-            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
-            // Skip tasks with no sprint
-            if (!sprint) return acc;
-            
-            if (!acc[sprint]) {
-                acc[sprint] = {
-                    completedTasks: 0,
-                    effort: 0
-                };
-            }
-            if (task.Status === 'Done') {
-                acc[sprint].completedTasks++;
-                acc[sprint].effort += task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value] || 0;
-            }
-            return acc;
-        }, {});
-
-        const sprints = Object.keys(sprintData).sort();
-        
+        // Create chart options
         const options = {
             title: {
                 text: 'Sprint Velocity Trends',
@@ -115,7 +112,7 @@ export const SprintVelocityChart = ({ flattenedData, prs, styleOptions, onInsigh
             },
             xAxis: {
                 type: 'category',
-                data: sprints
+                data: sortedSprints
             },
             yAxis: [
                 {
@@ -133,22 +130,22 @@ export const SprintVelocityChart = ({ flattenedData, prs, styleOptions, onInsigh
                 {
                     name: 'Completed Tasks',
                     type: 'bar',
-                    data: sprints.map(sprint => sprintData[sprint].completedTasks)
+                    data: sortedSprints.map(sprint => sprintData[sprint].completedTasks)
                 },
                 {
                     name: 'Effort (days)',
                     type: 'line',
                     yAxisIndex: 1,
-                    data: sprints.map(sprint => sprintData[sprint].effort)
+                    data: sortedSprints.map(sprint => sprintData[sprint].effort)
                 }
             ]
         };
 
         setChartOptions(options);
-    }, [flattenedData, projectKeys]);
+    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights]);
 
     return (
-        <div >
+        <div>
             {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
         </div>
     );

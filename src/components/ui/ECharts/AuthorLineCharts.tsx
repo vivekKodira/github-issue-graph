@@ -1,7 +1,6 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
-import { LuTrendingUp } from "react-icons/lu";
 
 interface ReviewComment {
   author: string;
@@ -12,6 +11,21 @@ interface PullRequest {
   createdAt: string;
   author: string;
   reviewComments: ReviewComment[];
+}
+
+interface AuthorInsight {
+  text: string;
+  severity: number;
+}
+
+interface AuthorLineChartsProps {
+  flattenedData: any;
+  prs: PullRequest[];
+  styleOptions: {
+    width: string;
+    height: string;
+  };
+  onInsightsGenerated: (insights: AuthorInsight[]) => void;
 }
 
 export const createAuthorLineChartData = (prs: PullRequest[]) => {
@@ -92,15 +106,21 @@ const createEmptyChartOptions = (): EChartsOption => ({
 
 export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([createEmptyChartOptions()]);
+  const [previousInsights, setPreviousInsights] = useState<AuthorInsight[]>([]);
 
-  // Add effect for insights generation
   useEffect(() => {
-    if (!flattenedData?.length) return;
+    if (!flattenedData?.length) {
+      setChartOptionsArray([createEmptyChartOptions()]);
+      if (onInsightsGenerated) {
+        onInsightsGenerated([]);
+      }
+      return;
+    }
 
     const { months, authorSeries } = createAuthorLineChartData(flattenedData);
     
     // Generate insights from chart data
-    const insights = [];
+    const insights: AuthorInsight[] = [];
     authorSeries.forEach(series => {
       const data = series.data;
       if (data.length >= 2) {
@@ -111,26 +131,22 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
 
         if (currentValue < previousValue) {
           const decrease = ((previousValue - currentValue) / previousValue * 100).toFixed(1);
+          // Calculate severity based on percentage decrease
+          const decreaseNumber = parseFloat(decrease);
+          const severity = Math.min(5, Math.max(1, Math.floor(decreaseNumber / 20))); // -1 to -5 based on 20% intervals
           insights.push({
             text: `${series.name} received ${decrease}% fewer comments in ${currentMonth} compared to ${previousMonth}`,
-            icon: LuTrendingUp
+            severity
           });
         }
       }
     });
 
-    if (onInsightsGenerated) {
+    // Only update insights if they've changed
+    if (onInsightsGenerated && JSON.stringify(insights) !== JSON.stringify(previousInsights)) {
       onInsightsGenerated(insights);
+      setPreviousInsights(insights);
     }
-  }, [flattenedData, onInsightsGenerated]);
-
-  useEffect(() => {
-    if (!flattenedData?.length) {
-      setChartOptionsArray([createEmptyChartOptions()]);
-      return;
-    }
-
-    const { months, authorSeries } = createAuthorLineChartData(flattenedData);
 
     // Filter author series based on search term
     const filteredAuthorSeries = searchTerm
@@ -191,7 +207,7 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
     }));
 
     setChartOptionsArray([allAuthorsOptions, ...individualAuthorCharts]);
-  }, [flattenedData, searchTerm]);
+  }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
 
   return (
     <>

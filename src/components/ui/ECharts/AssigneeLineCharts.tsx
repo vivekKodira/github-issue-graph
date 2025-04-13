@@ -2,7 +2,11 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
-import { LuTrendingDown } from "react-icons/lu";
+
+interface AssigneeInsight {
+  text: string;
+  severity: number;
+}
 
 export const createLineChartData = (tasks, projectKeys) => {
   const sprintData = {};
@@ -73,15 +77,21 @@ export const createLineChartData = (tasks, projectKeys) => {
 export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const { projectKeys } = useProjectKeys();
   const [chartOptionsArray, setChartOptionsArray] = useState([]);
+  const [previousInsights, setPreviousInsights] = useState<AssigneeInsight[]>([]);
 
-  // Add effect for insights generation
   useEffect(() => {
-    if (!flattenedData?.length) return;
+    if (!flattenedData?.length) {
+      setChartOptionsArray([]);
+      if (onInsightsGenerated) {
+        onInsightsGenerated([]);
+      }
+      return;
+    }
 
     const { sprints, assigneeSeries } = createLineChartData(flattenedData, projectKeys);
     
     // Generate insights from chart data
-    const insights = [];
+    const insights: AssigneeInsight[] = [];
     assigneeSeries.forEach(series => {
       const data = series.data;
       if (data.length >= 2) {
@@ -92,23 +102,31 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
 
         if (currentValue < previousValue) {
           const decrease = ((previousValue - currentValue) / previousValue * 100).toFixed(1);
+          // Calculate severity based on percentage decrease
+          const severity = -Math.min(5, Math.max(1, Math.floor(Number(decrease) / 20))); // -1 to -5 based on 20% intervals
           insights.push({
-            text: `${series.name}'s task value decreased by ${decrease}% in ${currentSprint} compared to ${previousSprint}`,
-            icon: LuTrendingDown
+            text: `${series.name}'s task efforts decreased by ${decrease}% in ${currentSprint} compared to ${previousSprint}`,
+            severity
+          });
+        }
+        
+        else if (currentValue > previousValue) {
+          const increase = ((currentValue - previousValue) / previousValue * 100).toFixed(1);
+          // Calculate severity based on percentage decrease
+          const severity = Math.min(5, Math.max(1, Math.floor(Number(increase) / 20))); // -1 to -5 based on 20% intervals
+          insights.push({
+            text: `${series.name}'s task efforts increased by ${increase}% in ${currentSprint} compared to ${previousSprint}`,
+            severity
           });
         }
       }
     });
 
-    if (onInsightsGenerated) {
+    // Only update insights if they've changed
+    if (onInsightsGenerated && JSON.stringify(insights) !== JSON.stringify(previousInsights)) {
       onInsightsGenerated(insights);
+      setPreviousInsights(insights);
     }
-  }, [flattenedData, projectKeys, onInsightsGenerated]);
-
-  useEffect(() => {
-    if (!flattenedData?.length) return;
-
-    const { sprints, allAssigneesSeries, assigneeSeries } = createLineChartData(flattenedData, projectKeys);
 
     // Filter assignee series based on search term
     const filteredAssigneeSeries = searchTerm
@@ -177,7 +195,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     }));
 
     setChartOptionsArray([allAssigneesOptions, ...individualCharts]);
-  }, [flattenedData, projectKeys, searchTerm]);
+  }, [flattenedData, projectKeys, searchTerm, onInsightsGenerated, previousInsights]);
 
   return (
     <>

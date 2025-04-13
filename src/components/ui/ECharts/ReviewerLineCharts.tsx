@@ -1,7 +1,6 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
-import { LuTrendingDown } from "react-icons/lu";
 
 interface ReviewComment {
   author: string;
@@ -12,6 +11,11 @@ interface PullRequest {
   createdAt: string;
   author: string;
   reviewComments: ReviewComment[];
+}
+
+interface ReviewerInsight {
+  text: string;
+  severity: number;
 }
 
 export const createReviewerLineChartData = (prs: PullRequest[]) => {
@@ -94,15 +98,21 @@ const createEmptyChartOptions = (): EChartsOption => ({
 
 export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([createEmptyChartOptions()]);
+  const [previousInsights, setPreviousInsights] = useState<ReviewerInsight[]>([]);
 
-  // Add effect for insights generation
   useEffect(() => {
-    if (!flattenedData?.length) return;
+    if (!flattenedData?.length) {
+      setChartOptionsArray([createEmptyChartOptions()]);
+      if (onInsightsGenerated) {
+        onInsightsGenerated([]);
+      }
+      return;
+    }
 
     const { months, reviewerSeries } = createReviewerLineChartData(flattenedData);
     
     // Generate insights from chart data
-    const insights = [];
+    const insights: ReviewerInsight[] = [];
     reviewerSeries.forEach(series => {
       const data = series.data;
       if (data.length >= 2) {
@@ -113,26 +123,21 @@ export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, on
 
         if (currentValue < previousValue) {
           const decrease = ((previousValue - currentValue) / previousValue * 100).toFixed(1);
+          // Calculate severity based on percentage decrease
+          const severity = -Math.min(5, Math.max(1, Math.floor(Number(decrease) / 20))); // -1 to -5 based on 20% intervals
           insights.push({
             text: `${series.name} gave ${decrease}% fewer comments in ${currentMonth} compared to ${previousMonth}`,
-            icon: LuTrendingDown
+            severity
           });
         }
       }
     });
 
-    if (onInsightsGenerated) {
+    // Only update insights if they've changed
+    if (onInsightsGenerated && JSON.stringify(insights) !== JSON.stringify(previousInsights)) {
       onInsightsGenerated(insights);
+      setPreviousInsights(insights);
     }
-  }, [flattenedData, onInsightsGenerated]);
-
-  useEffect(() => {
-    if (!flattenedData?.length) {
-      setChartOptionsArray([createEmptyChartOptions()]);
-      return;
-    }
-
-    const { months, reviewerSeries } = createReviewerLineChartData(flattenedData);
 
     // Filter reviewer series based on search term
     const filteredReviewerSeries = searchTerm
@@ -193,7 +198,7 @@ export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     }));
 
     setChartOptionsArray([allReviewersOptions, ...individualReviewerCharts]);
-  }, [flattenedData, searchTerm]);
+  }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
 
   return (
     <>

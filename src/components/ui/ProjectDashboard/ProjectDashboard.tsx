@@ -69,6 +69,7 @@ const fetchoverAllCompletedData = (
 interface Insight {
   text: string;
   icon: React.ComponentType;
+  severity: number;
 }
 
 export const ProjectDashboard = ({
@@ -150,8 +151,23 @@ export const ProjectDashboard = ({
   };
 
   const handleInsightsGenerated = useCallback((newInsights: Insight[]) => {
-    insightsRef.current = [...insightsRef.current, ...newInsights];
-    setInsights(insightsRef.current);
+    // Ensure all insights have the required severity property
+    const validInsights = newInsights.map(insight => ({
+      ...insight,
+      severity: insight.severity || 0 // Default to neutral if not provided
+    }));
+
+    // Filter out any insights that are already in the current insights
+    const uniqueNewInsights = validInsights.filter(newInsight => 
+      !insightsRef.current.some(existingInsight => 
+        existingInsight.text === newInsight.text
+      )
+    );
+    
+    if (uniqueNewInsights.length > 0) {
+      insightsRef.current = [...insightsRef.current, ...uniqueNewInsights];
+      setInsights(insightsRef.current);
+    }
   }, []);
 
   const handleTabChange = useCallback((details: { value: string }) => {
