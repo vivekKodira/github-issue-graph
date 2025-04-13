@@ -29,6 +29,7 @@ import { ReviewerPieCharts } from "../ECharts/ReviewerPieCharts";
 import { ReviewerLineCharts } from "../ECharts/ReviewerLineCharts";
 import { AuthorLineCharts } from "../ECharts/AuthorLineCharts";
 import { Insights } from "../ECharts/Insights";
+import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
 
 const fetchPlannedTaskCompletedCount = (tasks) => {
   const completedTasks = tasks.filter((task) => task.Status === "Done");
@@ -236,12 +237,19 @@ export const ProjectDashboard = ({
                     </Box>
                   )}
                 </SimpleGrid>
-                <Box>
+                <Box mt={6}>
                   <SprintVelocityChart
                     flattenedData={flattenedData}
-                    prs={memoizedPRs}
                     styleOptions={styleOptions}
                     onInsightsGenerated={handleInsightsGenerated}
+                  />
+                </Box>
+                <Box mt={6}>
+                  <EffortPredictionChart
+                    flattenedData={flattenedData}
+                    styleOptions={styleOptions}
+                    onInsightsGenerated={handleInsightsGenerated}
+                    plannedEffortForProject={plannedEffortForProject}
                   />
                 </Box>
               </Box>
