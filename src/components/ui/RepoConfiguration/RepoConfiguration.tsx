@@ -2,7 +2,6 @@ import {  Heading, Text, Input, Stack, Button, Field, Tabs } from "@chakra-ui/re
 import { PasswordInput } from "@/components/ui/password-input.js";
 import { toaster } from "@/components/ui/toaster";
 import { useState, useEffect } from "react";
-import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { ProjectKeyConfig } from '@/types/projectKeys';
 import { PROJECT_KEY_CONFIGS } from '@/config/projectKeyConfigs';
@@ -90,7 +89,7 @@ function RepoConfiguration({
 
         {/* Basic Configuration Tab */}
         <Tabs.Content value="basic">
-          <Stack direction="column" mt={4} maxW="50%" mx="auto">
+          <Stack direction="column" mt={4} maxW="50%" mx="auto" gap={4}>
             <Field.Root w="100%">
               <Field.Label>
                 Repo Owner<Field.RequiredIndicator />
@@ -102,7 +101,8 @@ function RepoConfiguration({
               />
               <Text fontSize="sm" color="gray.500" mt={1}>Enter the repository owner or organization name</Text>
             </Field.Root>
-            <Stack direction="row" w="100%" gap={4}>
+
+            <Stack direction={{ base: "column", md: "row" }} gap={4} align="center">
               <Field.Root flex="1">
                 <Field.Label>
                   Repository<Field.RequiredIndicator />
@@ -127,6 +127,7 @@ function RepoConfiguration({
                 <Text fontSize="sm" color="gray.500" mt={1}>Enter the project name</Text>
               </Field.Root>
             </Stack>
+
             <Field.Root w="100%">
               <Field.Label>
                 Github Token<Field.RequiredIndicator />
@@ -138,6 +139,7 @@ function RepoConfiguration({
               />
               <Text fontSize="sm" color="gray.500" mt={1}>Enter your GitHub personal access token</Text>
             </Field.Root>
+
             <Field.Root w="100%">
               <Field.Label>
                 OpenAI API Key
@@ -149,6 +151,7 @@ function RepoConfiguration({
               />
               <Text fontSize="sm" color="gray.500" mt={1}>Enter your OpenAI API key for enhanced word cloud processing</Text>
             </Field.Root>
+
             <Field.Root w="100%">
               <Field.Label>
                 Planned Effort for Project (days)
@@ -165,7 +168,7 @@ function RepoConfiguration({
 
         {/* Project Keys Tab */}
         <Tabs.Content value="keys">
-          <Stack direction="column" mt={4} maxW="50%" mx="auto">
+          <Stack direction="column" mt={4} maxW="50%" mx="auto" gap={4}>
             <Heading size="sm" mb={2}>Project Keys Configuration</Heading>
             {Object.entries(projectKeys).map(([key, config]) => (
               <Field.Root key={key} w="100%">
@@ -187,7 +190,7 @@ function RepoConfiguration({
       </Tabs.Root>
 
       {/* Action Buttons */}
-      <Stack direction="row" gap={4} mt={6} maxW="50%" mx="auto">
+      <Stack direction={{ base: "column", md: "row" }} gap={4} mt={6} maxW="50%" mx="auto">
         <Button
           id="submitConfiguration"
           disabled={!repoOwner || (!repository && !project) || !githubToken}
