@@ -136,7 +136,7 @@ export const PRReviewChart = ({ prs, styleOptions }) => {
                 textStyle: {
                     color: '#ffffff'
                 },
-                data: ['Changes Requested', 'Approved', 'Commented']
+                data: ['PR Size vs Review Time', 'Review Time Trend']
             }
         };
 

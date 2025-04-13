@@ -42,7 +42,7 @@ export const ReviewQualityChart = ({ prs, styleOptions }) => {
                 textStyle: {
                     color: '#ffffff'
                 },
-                data: ['Comments per PR', 'Review Time']
+                data: ['Quality Metrics']
             },
             radar: {
                 indicator: [

@@ -57,7 +57,7 @@ export const CodeChurnChart = ({ prs, styleOptions }) => {
                 textStyle: {
                     color: '#ffffff'
                 },
-                data: ['Additions', 'Deletions']
+                data: ['Additions', 'Deletions', 'Files Changed']
             },
             dataZoom: [
                 {
