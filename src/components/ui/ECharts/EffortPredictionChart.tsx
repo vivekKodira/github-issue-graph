@@ -2,20 +2,23 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { Box } from "@chakra-ui/react";
+import { TaskFormat } from '@/util/taskConverter';
+import { Insight } from './types';
 
 interface SprintData {
-    effort: number;
+    sprint: string;
+    tasks: TaskFormat[];
 }
 
-interface SprintInsight {
-    text: string;
-    severity: number;
-}
+export const createEffortPredictionChartData = (tasks: TaskFormat[], projectKeys: any) => {
+    // ... existing code ...
+};
 
 export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsGenerated, plannedEffortForProject }) => {
     const { projectKeys } = useProjectKeys();
     const [chartOptions, setChartOptions] = useState(null);
-    const [previousInsights, setPreviousInsights] = useState<SprintInsight[]>([]);
+    const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
 
     useEffect(() => {
         if (!flattenedData?.length || !plannedEffortForProject) {
@@ -39,17 +42,18 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
             sprints.add(sprint);
             if (!sprintData[sprint]) {
                 sprintData[sprint] = {
-                    effort: 0
+                    sprint: sprint,
+                    tasks: []
                 };
             }
             
-            sprintData[sprint].effort += Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0;
+            sprintData[sprint].tasks.push(task);
         });
 
         const sortedSprints = Array.from(sprints).sort();
         
         // Calculate total completed effort and average effort per sprint
-        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => sum + sprintData[sprint].effort, 0);
+        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => sum + sprintData[sprint].tasks.reduce((sum, task) => sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0), 0);
         const averageEffortPerSprint = totalCompletedEffort / sortedSprints.length;
         
         console.log('Sprint Data:', sprintData);
@@ -66,7 +70,7 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
             `Sprint ${sortedSprints.length + i + 1}`);
 
         // Generate insights
-        const insights: SprintInsight[] = [];
+        const insights: Insight[] = [];
         
         // Add prediction insight
         const completionDate = new Date();
@@ -120,7 +124,7 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
                 {
                     name: 'Actual Effort',
                     type: 'line',
-                    data: sortedSprints.map(sprint => sprintData[sprint].effort),
+                    data: sortedSprints.map(sprint => sprintData[sprint].tasks.reduce((sum, task) => sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0)),
                     markLine: {
                         data: [
                             {

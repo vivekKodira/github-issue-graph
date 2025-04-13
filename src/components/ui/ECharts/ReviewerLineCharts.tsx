@@ -1,21 +1,45 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
+import { PROJECT_KEYS } from '@/config/projectKeys';
+import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { Box } from "@chakra-ui/react";
+import { TaskFormat } from '@/util/taskConverter';
+import { Insight } from './types';
 
 interface ReviewComment {
-  author: string;
+  body: string;
   createdAt: string;
+  author: string;
+  path: string;
+  position: number;
 }
 
 interface PullRequest {
+  id: string;
+  title: string;
+  number: number;
   createdAt: string;
+  closedAt: string | null;
+  mergedAt: string | null;
+  state: string;
+  body: string;
   author: string;
-  reviewComments: ReviewComment[];
+  assignees: string[];
+  labels: string[];
+  reviews: {
+    state: string;
+    author: string;
+    comments: ReviewComment[];
+  }[];
+  additions: number;
+  deletions: number;
+  changedFiles: number;
 }
 
-interface ReviewerInsight {
-  text: string;
-  severity: number;
+interface ReviewerData {
+  reviewer: string;
+  tasks: TaskFormat[];
 }
 
 export const createReviewerLineChartData = (prs: PullRequest[]) => {
@@ -24,30 +48,25 @@ export const createReviewerLineChartData = (prs: PullRequest[]) => {
 
   // Initialize data structures
   prs.forEach((pr) => {
-    if (!pr.reviewComments || pr.reviewComments.length === 0) {
-      return; // Skip PRs with no review comments
+    if (!pr.reviews || pr.reviews.length === 0) {
+      return; // Skip PRs with no reviews
     }
 
     // Get the month from the PR creation date
     const prDate = new Date(pr.createdAt);
     const monthKey = `${prDate.getFullYear()}-${String(prDate.getMonth() + 1).padStart(2, '0')}`;
 
-    // Process review comments
-    pr.reviewComments.forEach((comment) => {
-      // Skip comments from the PR author
-      if (comment.author === pr.author) {
-        return;
-      }
-
+    // Process reviews
+    pr.reviews.forEach((review) => {
       // Track reviewer
-      reviewerData[comment.author] = true;
+      reviewerData[review.author] = true;
       if (!timeData[monthKey]) {
         timeData[monthKey] = {};
       }
-      if (!timeData[monthKey][comment.author]) {
-        timeData[monthKey][comment.author] = 0;
+      if (!timeData[monthKey][review.author]) {
+        timeData[monthKey][review.author] = 0;
       }
-      timeData[monthKey][comment.author]++;
+      timeData[monthKey][review.author]++;
     });
   });
 
@@ -96,12 +115,12 @@ const createEmptyChartOptions = (): EChartsOption => ({
   }] as LineSeriesOption[]
 });
 
-export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
-  const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([createEmptyChartOptions()]);
-  const [previousInsights, setPreviousInsights] = useState<ReviewerInsight[]>([]);
+export const ReviewerLineCharts = ({ prs, styleOptions, searchTerm, onInsightsGenerated }) => {
+  const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([]);
+  const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
 
   useEffect(() => {
-    if (!flattenedData?.length) {
+    if (!prs?.length) {
       setChartOptionsArray([createEmptyChartOptions()]);
       if (onInsightsGenerated) {
         onInsightsGenerated([]);
@@ -109,10 +128,10 @@ export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, on
       return;
     }
 
-    const { months, reviewerSeries } = createReviewerLineChartData(flattenedData);
+    const { months, reviewerSeries } = createReviewerLineChartData(prs);
     
     // Generate insights from chart data
-    const insights: ReviewerInsight[] = [];
+    const insights: Insight[] = [];
     reviewerSeries.forEach(series => {
       const data = series.data;
       if (data.length >= 2) {
@@ -198,7 +217,7 @@ export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     }));
 
     setChartOptionsArray([allReviewersOptions, ...individualReviewerCharts]);
-  }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
+  }, [prs, searchTerm, onInsightsGenerated, previousInsights]);
 
   return (
     <>

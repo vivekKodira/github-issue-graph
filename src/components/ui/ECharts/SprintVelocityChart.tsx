@@ -2,21 +2,23 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { Box } from "@chakra-ui/react";
+import { TaskFormat } from '@/util/taskConverter';
+import { Insight } from './types';
 
 interface SprintData {
-    completedTasks: number;
-    effort: number;
+    sprint: string;
+    tasks: TaskFormat[];
 }
 
-interface SprintInsight {
-    text: string;
-    severity: number;
-}
+export const createSprintVelocityChartData = (tasks: TaskFormat[], projectKeys: any) => {
+    // ... existing code ...
+};
 
 export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGenerated }) => {
     const { projectKeys } = useProjectKeys();
     const [chartOptions, setChartOptions] = useState(null);
-    const [previousInsights, setPreviousInsights] = useState<SprintInsight[]>([]);
+    const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
 
     useEffect(() => {
         if (!flattenedData?.length) {
@@ -40,26 +42,25 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
             sprints.add(sprint);
             if (!sprintData[sprint]) {
                 sprintData[sprint] = {
-                    completedTasks: 0,
-                    effort: 0
+                    sprint: sprint,
+                    tasks: []
                 };
             }
             
-            sprintData[sprint].completedTasks++;
-            sprintData[sprint].effort += Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0;
+            sprintData[sprint].tasks.push(task);
         });
 
         const sortedSprints = Array.from(sprints).sort();
         
         // Generate insights from chart data
-        const insights: SprintInsight[] = [];
+        const insights: Insight[] = [];
         if (sortedSprints.length >= 2) {
             const currentSprint = sortedSprints[sortedSprints.length - 1];
             const previousSprint = sortedSprints[sortedSprints.length - 2];
             
             // Check completed tasks
-            const currentTasks = sprintData[currentSprint].completedTasks;
-            const previousTasks = sprintData[previousSprint].completedTasks;
+            const currentTasks = sprintData[currentSprint].tasks.length;
+            const previousTasks = sprintData[previousSprint].tasks.length;
             if (currentTasks < previousTasks) {
                 const decrease = ((previousTasks - currentTasks) / previousTasks * 100).toFixed(1);
                 // Calculate severity based on percentage decrease
@@ -71,8 +72,8 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
             }
             
             // Check effort
-            const currentEffort = sprintData[currentSprint].effort;
-            const previousEffort = sprintData[previousSprint].effort;
+            const currentEffort = sprintData[currentSprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0);
+            const previousEffort = sprintData[previousSprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0);
             if (currentEffort < previousEffort) {
                 const decrease = ((previousEffort - currentEffort) / previousEffort * 100).toFixed(1);
                 // Calculate severity based on percentage decrease
@@ -130,13 +131,13 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
                 {
                     name: 'Completed Tasks',
                     type: 'bar',
-                    data: sortedSprints.map(sprint => sprintData[sprint].completedTasks)
+                    data: sortedSprints.map(sprint => sprintData[sprint].tasks.length)
                 },
                 {
                     name: 'Effort (days)',
                     type: 'line',
                     yAxisIndex: 1,
-                    data: sortedSprints.map(sprint => sprintData[sprint].effort)
+                    data: sortedSprints.map(sprint => sprintData[sprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0))
                 }
             ]
         };

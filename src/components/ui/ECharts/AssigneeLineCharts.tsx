@@ -5,11 +5,7 @@ import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { Box, Table, Stack } from "@chakra-ui/react";
 import { LuChevronDown, LuX } from "react-icons/lu";
 import { TaskFormat } from '@/util/taskConverter';
-
-interface AssigneeInsight {
-  text: string;
-  severity: number;
-}
+import { Insight } from './types';
 
 interface AssigneeData {
   assignee: string;
@@ -85,7 +81,7 @@ export const createLineChartData = (tasks, projectKeys) => {
 export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const { projectKeys } = useProjectKeys();
   const [chartOptionsArray, setChartOptionsArray] = useState([]);
-  const [previousInsights, setPreviousInsights] = useState<AssigneeInsight[]>([]);
+  const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
   const [tableData, setTableData] = useState<AssigneeData[]>([]);
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [selectedSprints, setSelectedSprints] = useState<Record<string, string>>({});
@@ -106,7 +102,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     const { sprints, assigneeSeries } = createLineChartData(flattenedData, projectKeys);
     
     // Generate insights from chart data
-    const insights: AssigneeInsight[] = [];
+    const insights: Insight[] = [];
     assigneeSeries.forEach(series => {
       const data = series.data;
       if (data.length >= 2) {

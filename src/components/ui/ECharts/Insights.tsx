@@ -1,11 +1,7 @@
 import { Box, Text, Stack } from "@chakra-ui/react";
 import { memo } from "react";
 import { LuTrendingUp, LuTrendingDown } from "react-icons/lu";
-
-interface Insight {
-  text: string;
-  severity: number; // -5 to 5
-}
+import { Insight } from "./types";
 
 interface InsightsProps {
   insights: Insight[];

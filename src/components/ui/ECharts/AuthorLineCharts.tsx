@@ -1,21 +1,45 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
+import { PROJECT_KEYS } from '@/config/projectKeys';
+import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { Box } from "@chakra-ui/react";
+import { TaskFormat } from '@/util/taskConverter';
+import { Insight } from './types';
 
 interface ReviewComment {
-  author: string;
+  body: string;
   createdAt: string;
+  author: string;
+  path: string;
+  position: number;
 }
 
 interface PullRequest {
+  id: string;
+  title: string;
+  number: number;
   createdAt: string;
+  closedAt: string | null;
+  mergedAt: string | null;
+  state: string;
+  body: string;
   author: string;
-  reviewComments: ReviewComment[];
+  assignees: string[];
+  labels: string[];
+  reviews: {
+    state: string;
+    author: string;
+    comments: ReviewComment[];
+  }[];
+  additions: number;
+  deletions: number;
+  changedFiles: number;
 }
 
-interface AuthorInsight {
-  text: string;
-  severity: number;
+interface AuthorData {
+  author: string;
+  tasks: TaskFormat[];
 }
 
 interface AuthorLineChartsProps {
@@ -25,7 +49,7 @@ interface AuthorLineChartsProps {
     width: string;
     height: string;
   };
-  onInsightsGenerated: (insights: AuthorInsight[]) => void;
+  onInsightsGenerated: (insights: Insight[]) => void;
 }
 
 export const createAuthorLineChartData = (prs: PullRequest[]) => {
@@ -106,7 +130,7 @@ const createEmptyChartOptions = (): EChartsOption => ({
 
 export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([createEmptyChartOptions()]);
-  const [previousInsights, setPreviousInsights] = useState<AuthorInsight[]>([]);
+  const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
 
   useEffect(() => {
     if (!flattenedData?.length) {
@@ -120,7 +144,7 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
     const { months, authorSeries } = createAuthorLineChartData(flattenedData);
     
     // Generate insights from chart data
-    const insights: AuthorInsight[] = [];
+    const insights: Insight[] = [];
     authorSeries.forEach(series => {
       const data = series.data;
       if (data.length >= 2) {
