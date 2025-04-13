@@ -1,4 +1,5 @@
-import {  Heading, Text, Input, Stack, Button, Field, Tabs } from "@chakra-ui/react";
+import { Heading, Text, Input, Stack, Button, Tabs } from "@chakra-ui/react";
+import { FormControl, FormLabel, FormHelperText, FormErrorMessage } from "@chakra-ui/form-control";
 import { PasswordInput } from "@/components/ui/password-input.js";
 import { toaster } from "@/components/ui/toaster";
 import { useState, useEffect } from "react";
@@ -90,79 +91,82 @@ function RepoConfiguration({
         {/* Basic Configuration Tab */}
         <Tabs.Content value="basic">
           <Stack direction="column" mt={4} maxW="50%" mx="auto" gap={4}>
-            <Field.Root w="100%">
-              <Field.Label>
-                Repo Owner<Field.RequiredIndicator />
-              </Field.Label>
+            <FormControl isRequired isInvalid={!repoOwner}>
+              <FormLabel>
+                Repo Owner
+              </FormLabel>
               <PasswordInput
                 placeholder="Repo owner"
                 value={repoOwner}
                 onChange={(evt) => setRepoOwner(evt.target.value)}
               />
-              <Text fontSize="sm" color="gray.500" mt={1}>Enter the repository owner or organization name</Text>
-            </Field.Root>
+              <FormHelperText>Enter the repository owner or organization name</FormHelperText>
+              {!repoOwner && <FormErrorMessage>Repo Owner is required</FormErrorMessage>}
+            </FormControl>
 
             <Stack direction={{ base: "column", md: "row" }} gap={4} align="center">
-              <Field.Root flex="1">
-                <Field.Label>
-                  Repository<Field.RequiredIndicator />
-                </Field.Label>
+              <FormControl isRequired isInvalid={!repository && !project} flex="1">
+                <FormLabel>
+                  Repository
+                </FormLabel>
                 <PasswordInput
                   placeholder="Repository"
                   value={repository}
                   onChange={(evt) => setRepository(evt.target.value)}
                 />
-                <Text fontSize="sm" color="gray.500" mt={1}>Enter the repository name</Text>
-              </Field.Root>
+                <FormHelperText>Enter the repository name</FormHelperText>
+                {!repository && !project && <FormErrorMessage>Either Repository or Project is required</FormErrorMessage>}
+              </FormControl>
               <Text alignSelf="center" my={2}>or</Text>
-              <Field.Root flex="1">
-                <Field.Label>
-                  Project<Field.RequiredIndicator />
-                </Field.Label>
+              <FormControl flex="1">
+                <FormLabel>
+                  Project
+                </FormLabel>
                 <PasswordInput
                   placeholder="Project"
                   value={project}
                   onChange={(evt) => setProject(evt.target.value)}
                 />
-                <Text fontSize="sm" color="gray.500" mt={1}>Enter the project name</Text>
-              </Field.Root>
+                <FormHelperText>Enter the project name (optional)</FormHelperText>
+              </FormControl>
             </Stack>
 
-            <Field.Root w="100%">
-              <Field.Label>
-                Github Token<Field.RequiredIndicator />
-              </Field.Label>
+            <FormControl isRequired isInvalid={!githubToken}>
+              <FormLabel>
+                Github Token
+              </FormLabel>
               <PasswordInput
                 placeholder="Github Token"
                 value={githubToken}
                 onChange={(evt) => setGithubToken(evt.target.value)}
               />
-              <Text fontSize="sm" color="gray.500" mt={1}>Enter your GitHub personal access token</Text>
-            </Field.Root>
+              <FormHelperText>Enter your GitHub personal access token</FormHelperText>
+              {!githubToken && <FormErrorMessage>GitHub Token is required</FormErrorMessage>}
+            </FormControl>
 
-            <Field.Root w="100%">
-              <Field.Label>
+            <FormControl>
+              <FormLabel>
                 OpenAI API Key
-              </Field.Label>
+              </FormLabel>
               <PasswordInput
                 placeholder="OpenAI API Key"
                 value={openaiApiKey}
                 onChange={(evt) => setOpenaiApiKey(evt.target.value)}
               />
-              <Text fontSize="sm" color="gray.500" mt={1}>Enter your OpenAI API key for enhanced word cloud processing</Text>
-            </Field.Root>
+              <FormHelperText>Enter your OpenAI API key for enhanced word cloud processing (optional)</FormHelperText>
+            </FormControl>
 
-            <Field.Root w="100%">
-              <Field.Label>
+            <FormControl>
+              <FormLabel>
                 Planned Effort for Project (days)
-              </Field.Label>
+              </FormLabel>
               <Input
                 placeholder="Planned Effort for Project"
                 value={plannedEffortForProject}
                 onChange={(evt) => setPlannedEffortForProject(evt.target.value)}
               />
-              <Text fontSize="sm" color="gray.500" mt={1}>Enter the planned effort in days</Text>
-            </Field.Root>
+              <FormHelperText>Enter the planned effort in days (optional)</FormHelperText>
+            </FormControl>
           </Stack>
         </Tabs.Content>
 
@@ -171,10 +175,10 @@ function RepoConfiguration({
           <Stack direction="column" mt={4} maxW="50%" mx="auto" gap={4}>
             <Heading size="sm" mb={2}>Project Keys Configuration</Heading>
             {Object.entries(projectKeys).map(([key, config]) => (
-              <Field.Root key={key} w="100%">
-                <Field.Label>
-                  {config.label}{config.required && <Field.RequiredIndicator />}
-                </Field.Label>
+              <FormControl key={key} w="100%" isRequired={config.required} isInvalid={config.required && !config.value}>
+                <FormLabel>
+                  {config.label}
+                </FormLabel>
                 <Input
                   type={config.type}
                   disabled={true}
@@ -182,8 +186,9 @@ function RepoConfiguration({
                   value={config.value}
                   onChange={(evt) => handleProjectKeyChange(key, evt.target.value)}
                 />
-                <Text fontSize="sm" color="gray.500" mt={1}>{config.placeholder}</Text>
-              </Field.Root>
+                <FormHelperText>{config.placeholder}</FormHelperText>
+                {config.required && !config.value && <FormErrorMessage>{config.label} is required</FormErrorMessage>}
+              </FormControl>
             ))}
           </Stack>
         </Tabs.Content>
