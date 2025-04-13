@@ -51,6 +51,7 @@ flowchart TD
   - Planned Task Completion Effort
   - Overall Task Completion
 - **Sprint Velocity Chart**: Track team's velocity across sprints
+- **Effort Prediction Chart**: Predict project completion timeline based on current velocity
 - **Status Chart**: View issue status distribution
 - **Sprint Chart**: Analyze sprint-wise task distribution
 
@@ -71,7 +72,20 @@ flowchart TD
 - **PR Lifecycle Chart**: Time taken for PR reviews and merges
 - **Code Churn Chart**: Code changes and modifications
 - **Review Quality Chart**: Quality metrics for code reviews
-- **Review Word Cloud**: Common terms in PR reviews
+- **Review Word Cloud**: AI-enhanced visualization of common terms in PR reviews
+
+```mermaid
+flowchart TD
+    A[PR Review Comments] --> B[Text Processing]
+    B --> C[Stop Words Filtering]
+    C --> D[Word Normalization]
+    D --> E[Word Frequency Analysis]
+    E --> F[AI Processing]
+    F --> G[Word Cloud Generation]
+    G --> H[Interactive Visualization]
+    H --> I[Word Filtering UI]
+    I --> J[Real-time Updates]
+```
 
 ### Issue Graph
 - Interactive visualization of issue dependencies
@@ -116,8 +130,10 @@ If your repository doesn't use these custom fields, some charts and insights may
 ## Screenshots
 
 ### Project Overview
-*Track project completion, sprint velocity, and task distribution at a glance*
+*Track project completion, sprint velocity, effort prediction, and task distribution at a glance*
 ![Project Overview](docs/images/project-overview.png)
+![Prediction](docs/images/effort-prediction.png)
+
 
 ### Team Analysis
 *Monitor team performance with assignee workload and reviewer contribution charts*
