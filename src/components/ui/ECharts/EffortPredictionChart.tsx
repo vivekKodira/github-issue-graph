@@ -99,7 +99,18 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
             },
             xAxis: {
                 type: 'category',
-                data: [...sortedSprints, ...futureSprints]
+                data: [...sortedSprints, ...futureSprints],
+                axisLabel: {
+                    formatter: (value, index) => {
+                        return index >= sortedSprints.length ? `{future|${value}}` : value;
+                    },
+                    rich: {
+                        future: {
+                            color: '#00ff00', // Future sprints in green
+                            fontWeight: 'bold'
+                        }
+                    }
+                }
             },
             yAxis: {
                 type: 'value',
@@ -158,4 +169,4 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
             {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
         </div>
     );
-}; 
+};
