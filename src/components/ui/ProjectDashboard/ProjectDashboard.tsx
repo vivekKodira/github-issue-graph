@@ -80,6 +80,7 @@ export const ProjectDashboard = ({
   githubToken,
   openaiApiKey,
   plannedEffortForProject,
+  plannedEndDate,
 }) => {
   const { projectKeys } = useProjectKeys();
   const [loading, setLoading] = useState(false);
@@ -103,6 +104,10 @@ export const ProjectDashboard = ({
   const handleClick = async () => {
     setLoading(true);
     try {
+      // Clear insights before fetching new data
+      setInsights([]);
+      insightsRef.current = [];
+
       const [flattenedTasks, fetchedPRs] = await Promise.all([
         fetchProjectDetails({
           projectID: project,
@@ -141,9 +146,6 @@ export const ProjectDashboard = ({
       } else {
         console.log('PRs data unchanged, skipping update');
       }
-
-      setInsights([]);
-      insightsRef.current = [];
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -158,17 +160,17 @@ export const ProjectDashboard = ({
       severity: insight.severity || 0 // Default to neutral if not provided
     }));
 
-    // Filter out any insights that are already in the current insights
-    const uniqueNewInsights = validInsights.filter(newInsight => 
-      !insightsRef.current.some(existingInsight => 
-        existingInsight.text === newInsight.text
-      )
-    );
-    
-    if (uniqueNewInsights.length > 0) {
-      insightsRef.current = [...insightsRef.current, ...uniqueNewInsights];
-      setInsights(insightsRef.current);
-    }
+    // Update insights immediately
+    setInsights(prevInsights => {
+      // Filter out any insights that are already in the current insights
+      const uniqueNewInsights = validInsights.filter(newInsight => 
+        !prevInsights.some(existingInsight => 
+          existingInsight.text === newInsight.text
+        )
+      );
+      
+      return [...prevInsights, ...uniqueNewInsights];
+    });
   }, []);
 
   const handleTabChange = useCallback((details: { value: string }) => {
@@ -250,6 +252,7 @@ export const ProjectDashboard = ({
                     styleOptions={styleOptions}
                     onInsightsGenerated={handleInsightsGenerated}
                     plannedEffortForProject={plannedEffortForProject}
+                    plannedEndDate={plannedEndDate}
                   />
                 </Box>
               </Box>

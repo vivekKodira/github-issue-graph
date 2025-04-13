@@ -14,6 +14,7 @@ function RepoConfiguration({
   githubToken: initialGithubToken,
   openaiApiKey: initialOpenaiApiKey,
   plannedEffortForProject: initialPlannedEffortForProject,
+  plannedEndDate: initialPlannedEndDate,
   addConfiguration,
 }) {
   const { projectKeys, setProjectKeys } = useProjectKeys();
@@ -23,6 +24,7 @@ function RepoConfiguration({
   const [githubToken, setGithubToken] = useState(initialGithubToken || "");
   const [openaiApiKey, setOpenaiApiKey] = useState(initialOpenaiApiKey || "");
   const [plannedEffortForProject, setPlannedEffortForProject] = useState(initialPlannedEffortForProject || 0);
+  const [plannedEndDate, setPlannedEndDate] = useState(initialPlannedEndDate || "");
 
   useEffect(() => {
     setRepoOwner(initialRepoOwner);
@@ -31,7 +33,8 @@ function RepoConfiguration({
     setGithubToken(initialGithubToken);
     setOpenaiApiKey(initialOpenaiApiKey);
     setPlannedEffortForProject(initialPlannedEffortForProject);
-  }, [initialRepoOwner, initialRepository, initialProject, initialGithubToken, initialOpenaiApiKey, initialPlannedEffortForProject]);
+    setPlannedEndDate(initialPlannedEndDate);
+  }, [initialRepoOwner, initialRepository, initialProject, initialGithubToken, initialOpenaiApiKey, initialPlannedEffortForProject, initialPlannedEndDate]);
 
   const handleProjectKeyChange = (key: string, value: string) => {
     const updatedKeys: Record<string, ProjectKeyConfig> = {
@@ -59,6 +62,7 @@ function RepoConfiguration({
       openaiApiKey, 
       project, 
       plannedEffortForProject,
+      plannedEndDate,
       projectKeys 
     });
   };
@@ -71,6 +75,7 @@ function RepoConfiguration({
     setGithubToken("");
     setOpenaiApiKey("");
     setPlannedEffortForProject(0);
+    setPlannedEndDate("");
     setProjectKeys(PROJECT_KEY_CONFIGS);
     
     toaster.create({
@@ -161,11 +166,24 @@ function RepoConfiguration({
                 Planned Effort for Project (days)
               </FormLabel>
               <Input
+                type="number"
                 placeholder="Planned Effort for Project"
                 value={plannedEffortForProject}
-                onChange={(evt) => setPlannedEffortForProject(evt.target.value)}
+                onChange={(evt) => setPlannedEffortForProject(Number(evt.target.value))}
               />
               <FormHelperText>Enter the planned effort in days (optional)</FormHelperText>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>
+                Planned End Date
+              </FormLabel>
+              <Input
+                type="date"
+                value={plannedEndDate}
+                onChange={(evt) => setPlannedEndDate(evt.target.value)}
+              />
+              <FormHelperText>Enter the planned project completion date (optional)</FormHelperText>
             </FormControl>
           </Stack>
         </Tabs.Content>

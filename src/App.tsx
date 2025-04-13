@@ -12,6 +12,7 @@ function App() {
   const [githubToken, setGithubToken] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [plannedEffortForProject, setPlannedEffortForProject] = useState(0);
+  const [plannedEndDate, setPlannedEndDate] = useState("");
 
   useEffect(() => {
     setRepoOwner(localStorage.getItem("repoOwner") || "");
@@ -20,15 +21,17 @@ function App() {
     setOpenaiApiKey(localStorage.getItem("openaiApiKey") || "");
     setProject(localStorage.getItem("project") || "");
     setPlannedEffortForProject(Number(localStorage.getItem("plannedEffortForProject")) || 0);
+    setPlannedEndDate(localStorage.getItem("plannedEndDate") || "");
   },[]);
 
-  const addConfiguration = async ({ repoOwner, repository, githubToken, openaiApiKey, project, plannedEffortForProject, projectKeys }) => {
+  const addConfiguration = async ({ repoOwner, repository, githubToken, openaiApiKey, project, plannedEffortForProject, plannedEndDate, projectKeys }) => {
     localStorage.setItem("repoOwner", repoOwner);
     localStorage.setItem("repository", repository);
     localStorage.setItem("githubToken", githubToken);
     localStorage.setItem("openaiApiKey", openaiApiKey);
     localStorage.setItem("project", project);
     localStorage.setItem("plannedEffortForProject", plannedEffortForProject);
+    localStorage.setItem("plannedEndDate", plannedEndDate);
     localStorage.setItem("projectKeys", JSON.stringify(projectKeys));
     
     setRepoOwner(repoOwner);
@@ -37,6 +40,7 @@ function App() {
     setOpenaiApiKey(openaiApiKey);
     setProject(project);
     setPlannedEffortForProject(plannedEffortForProject);
+    setPlannedEndDate(plannedEndDate);
   };
 
   return (
@@ -49,6 +53,7 @@ function App() {
         githubToken={githubToken}
         openaiApiKey={openaiApiKey}
         plannedEffortForProject={plannedEffortForProject}
+        plannedEndDate={plannedEndDate}
         addConfiguration={addConfiguration}
       />
       <ProjectDashboard
@@ -58,6 +63,7 @@ function App() {
         githubToken={githubToken}
         openaiApiKey={openaiApiKey}
         plannedEffortForProject={plannedEffortForProject}
+        plannedEndDate={plannedEndDate}
       />
     </ProjectKeysProvider>
   );

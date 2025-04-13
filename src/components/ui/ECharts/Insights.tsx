@@ -46,9 +46,10 @@ export const Insights = memo(({ insights }: InsightsProps) => {
                 display="flex" 
                 alignItems="center"
                 color={color}
+                textAlign="left"
               >
                 <Box as={InsightIcon} style={{ marginRight: '8px' }} />
-                {insight.text}
+                <Text>{insight.text}</Text>
               </Box>
             );
           })}

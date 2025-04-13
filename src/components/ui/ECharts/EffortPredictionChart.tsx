@@ -2,7 +2,6 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
-import { Box } from "@chakra-ui/react";
 import { TaskFormat } from '@/util/taskConverter';
 import { Insight } from './types';
 
@@ -11,11 +10,14 @@ interface SprintData {
     tasks: TaskFormat[];
 }
 
-export const createEffortPredictionChartData = (tasks: TaskFormat[], projectKeys: any) => {
-    // ... existing code ...
-};
 
-export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsGenerated, plannedEffortForProject }) => {
+export const EffortPredictionChart = ({ 
+    flattenedData, 
+    styleOptions, 
+    onInsightsGenerated, 
+    plannedEffortForProject,
+    plannedEndDate
+}) => {
     const { projectKeys } = useProjectKeys();
     const [chartOptions, setChartOptions] = useState(null);
     const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
@@ -53,13 +55,10 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
         const sortedSprints = Array.from(sprints).sort();
         
         // Calculate total completed effort and average effort per sprint
-        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => sum + sprintData[sprint].tasks.reduce((sum, task) => sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0), 0);
+        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => 
+            sum + sprintData[sprint].tasks.reduce((sum, task) => 
+                sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0), 0);
         const averageEffortPerSprint = totalCompletedEffort / sortedSprints.length;
-        
-        console.log('Sprint Data:', sprintData);
-        console.log('Total Completed Effort:', totalCompletedEffort);
-        console.log('Number of Sprints:', sortedSprints.length);
-        console.log('Average Effort per Sprint:', averageEffortPerSprint);
         
         // Calculate remaining effort
         const remainingEffort = plannedEffortForProject - totalCompletedEffort;
@@ -72,14 +71,61 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
         // Generate insights
         const insights: Insight[] = [];
         
-        // Add prediction insight
+        // Calculate completion date
         const completionDate = new Date();
         completionDate.setDate(completionDate.getDate() + (predictedSprints * 10)); // Assuming 10 days per sprint
         
+        // Format dates for display
+        const formattedCompletionDate = completionDate.toLocaleDateString();
+        const formattedPlannedDate = plannedEndDate ? new Date(plannedEndDate).toLocaleDateString() : 'not set';
+
+        // Base insight about timeline
+        let timelineInsight = `Project Timeline: At the current rate of ${averageEffortPerSprint.toFixed(1)} days per sprint, the project will take ${predictedSprints} more sprints to complete. Estimated completion: ${formattedCompletionDate}.`;
+        let severity = 0;
+
+        // Add planned date comparison if available
+        if (plannedEndDate) {
+            const plannedDate = new Date(plannedEndDate);
+            const daysDifference = Math.ceil(
+                (completionDate.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            
+            if (daysDifference > 0) {
+                timelineInsight += ` This is ${daysDifference} days after the planned completion date (${formattedPlannedDate}).`;
+                // Calculate severity based on days late (negative for being behind)
+                if (daysDifference <= 5) severity = -1;
+                else if (daysDifference <= 10) severity = -2;
+                else if (daysDifference <= 15) severity = -3;
+                else if (daysDifference <= 20) severity = -4;
+                else severity = -5;
+            } else if (daysDifference < 0) {
+                timelineInsight += ` This is ${Math.abs(daysDifference)} days before the planned completion date (${formattedPlannedDate}).`;
+                severity = 1; // Positive for being ahead of schedule
+            } else {
+                timelineInsight += ` This matches the planned completion date (${formattedPlannedDate}).`;
+                severity = 0; // Neutral for being exactly on schedule
+            }
+        }
+
         insights.push({
-            text: `Project Timeline: At the current rate of ${averageEffortPerSprint.toFixed(1)} days per sprint, the project will take ${predictedSprints} more sprints to complete. Estimated completion: ${completionDate.toLocaleDateString()}.`,
-            severity: 0
+            text: timelineInsight,
+            severity: severity
         });
+
+        // Add velocity insight if behind schedule
+        if (plannedEndDate && severity < 0) { // Changed to check for negative severity
+            const plannedDate = new Date(plannedEndDate);
+            const remainingDays = Math.ceil((plannedDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            const remainingSprints = Math.ceil(remainingDays / 10); // Assuming 10 days per sprint
+            const requiredVelocityIncrease = ((plannedEffortForProject - totalCompletedEffort) / remainingSprints) - averageEffortPerSprint;
+
+            if (requiredVelocityIncrease > 0) {
+                insights.push({
+                    text: `To meet the planned completion date, the team needs to increase their velocity by ${requiredVelocityIncrease.toFixed(1)} days of effort per sprint.`,
+                    severity: Math.max(severity - 1, -5) // Make it more negative for worse situation
+                });
+            }
+        }
 
         // Create chart options
         const options = {
@@ -110,7 +156,7 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
                     },
                     rich: {
                         future: {
-                            color: '#00ff00', // Future sprints in green
+                            color: '#00ff00',
                             fontWeight: 'bold'
                         }
                     }
@@ -124,7 +170,10 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
                 {
                     name: 'Actual Effort',
                     type: 'line',
-                    data: sortedSprints.map(sprint => sprintData[sprint].tasks.reduce((sum, task) => sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0)),
+                    data: sortedSprints.map(sprint => 
+                        sprintData[sprint].tasks.reduce((sum, task) => 
+                            sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0)
+                    ),
                     markLine: {
                         data: [
                             {
@@ -137,7 +186,18 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
                                 label: {
                                     formatter: 'Planned Effort: {c} days'
                                 }
-                            }
+                            },
+                            ...(plannedEndDate ? [{
+                                name: 'Planned End Date',
+                                xAxis: new Date(plannedEndDate).toLocaleDateString(),
+                                lineStyle: {
+                                    color: '#ff0000',
+                                    type: 'dashed'
+                                },
+                                label: {
+                                    formatter: 'Planned End Date'
+                                }
+                            }] : [])
                         ]
                     }
                 },
@@ -166,7 +226,7 @@ export const EffortPredictionChart = ({ flattenedData, styleOptions, onInsightsG
             onInsightsGenerated(insights);
             setPreviousInsights(insights);
         }
-    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights, plannedEffortForProject]);
+    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights, plannedEffortForProject, plannedEndDate]);
 
     return (
         <div>
