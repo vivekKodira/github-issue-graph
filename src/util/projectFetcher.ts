@@ -107,7 +107,7 @@ const flattenGraphQLResponse = function (response) {
         flat["body"] = response.content.body;
         flat["state"] = response.content.state;
         flat["Status"] = response.content.state === "closed" ? "Done" : "Todo"; // Match taskConverter format
-        flat["html_url"] = response.content.html_url;
+        flat["html_url"] = response.content.url;
 
         // Process sub-issues into links array
         flat["links"] = (response.content.subIssues?.nodes || [])
@@ -115,7 +115,7 @@ const flattenGraphQLResponse = function (response) {
             .map(node => ({
                 type: "issue",
                 id: node.source.number.toString(),
-                url: node.source.html_url || `https://github.com/${flat["repo_owner"]}/${flat["repository"]}/issues/${node.source.number}`
+                url: node.source.url || `https://github.com/${flat["repo_owner"]}/${flat["repository"]}/issues/${node.source.number}`
             }));
     }
 

@@ -24,6 +24,7 @@ query ($projectId: ID!, $after: String) {
               number
               body
               state
+              url
               repository {
                 name
                 owner { login }
@@ -43,6 +44,7 @@ query ($projectId: ID!, $after: String) {
                     source {
                       ... on Issue {
                         number
+                        url
                       }
                     }
                   }
