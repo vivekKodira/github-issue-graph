@@ -75,7 +75,7 @@ async function processWordsWithAI(words: string[], openaiApiKey: string): Promis
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a technical word processor analyzing code review comments. Given a list of words and their frequencies, your task is to: 1. Group similar technical terms (e.g., "debug", "debugging" -> "debug") 2. Remove any remaining non-technical terms 3. Return the processed words in the same format. Each word should appear only once. Format: "word1:count1,word2:count2,..."'
+                        content: 'You are a technical word processor analyzing code review comments. Given a list of words and their frequencies, your task is to: 1. Group similar technical terms (e.g., "debug", "debugging" -> "debug") 2. Normalize verb tenses to present tense (e.g., "fixed", "fixing" -> "fix") 3. Normalize plurals to singular form (e.g., "bugs", "bug" -> "bug") 4. Remove any remaining non-technical terms 5. Return the processed words in the same format. Each word should appear only once. Format: "word1:count1,word2:count2,..."'
                     },
                     {
                         role: 'user',
