@@ -72,8 +72,8 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
             }
             
             // Check effort
-            const currentEffort = sprintData[currentSprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0);
-            const previousEffort = sprintData[previousSprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0);
+            const currentEffort = sprintData[currentSprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0);
+            const previousEffort = sprintData[previousSprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0);
             if (currentEffort < previousEffort) {
                 const decrease = ((previousEffort - currentEffort) / previousEffort * 100).toFixed(1);
                 // Calculate severity based on percentage decrease
@@ -137,7 +137,7 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
                     name: 'Effort (days)',
                     type: 'line',
                     yAxisIndex: 1,
-                    data: sortedSprints.map(sprint => sprintData[sprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0))
+                    data: sortedSprints.map(sprint => sprintData[sprint].tasks.reduce((total, task) => total + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0))
                 }
             ]
         };
