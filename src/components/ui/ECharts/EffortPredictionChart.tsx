@@ -57,7 +57,7 @@ export const EffortPredictionChart = ({
         // Calculate total completed effort and average effort per sprint
         const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => 
             sum + sprintData[sprint].tasks.reduce((sum, task) => 
-                sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0), 0);
+                sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0), 0);
         const averageEffortPerSprint = totalCompletedEffort / sortedSprints.length;
         
         // Calculate remaining effort
@@ -172,7 +172,7 @@ export const EffortPredictionChart = ({
                     type: 'line',
                     data: sortedSprints.map(sprint => 
                         sprintData[sprint].tasks.reduce((sum, task) => 
-                            sum + Number(task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value]) || 0, 0)
+                            sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0)
                     ),
                     markLine: {
                         data: [
