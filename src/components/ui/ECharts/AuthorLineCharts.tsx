@@ -128,6 +128,12 @@ const createEmptyChartOptions = (): EChartsOption => ({
   }] as LineSeriesOption[]
 });
 
+const formatMonthName = (monthStr: string): string => {
+  const [year, month] = monthStr.split('-');
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+};
+
 export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([createEmptyChartOptions()]);
   const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
@@ -158,10 +164,20 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
           // Calculate severity based on percentage decrease
           const decreaseNumber = parseFloat(decrease);
           const severity = Math.min(5, Math.max(1, Math.floor(decreaseNumber / 20))); // -1 to -5 based on 20% intervals
-          insights.push({
-            text: `${series.name} received ${decrease}% fewer comments in ${currentMonth} compared to ${previousMonth}`,
-            severity
+          
+          // Only add insight if the developer has PRs in the current month
+          const hasPRsInCurrentMonth = flattenedData.some(pr => {
+            const prDate = new Date(pr.createdAt);
+            const prMonth = `${prDate.getFullYear()}-${String(prDate.getMonth() + 1).padStart(2, '0')}`;
+            return prMonth === currentMonth && pr.author === series.name;
           });
+
+          if (hasPRsInCurrentMonth) {
+            insights.push({
+              text: `${series.name} received ${decrease}% fewer comments in ${formatMonthName(currentMonth)} compared to ${formatMonthName(previousMonth)}`,
+              severity
+            });
+          }
         }
       }
     });
