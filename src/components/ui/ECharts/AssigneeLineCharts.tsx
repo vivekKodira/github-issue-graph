@@ -175,7 +175,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     // Create options for individual assignee charts
     const individualCharts = filteredAssigneeSeries.map((series) => ({
       title: {
-        text: `Tasks per Sprint - ${series.name}`,
+        text: `Tasks Value per Sprint - ${series.name}`,
         left: "center",
         textStyle: {
           color: '#ffffff'
@@ -228,7 +228,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
           return (
             <ECharts option={{
               title: {
-                text: "Tasks per Sprint - All Assignees",
+                text: "Tasks Value per Sprint - All Assignees",
                 left: "center",
                 top: 20,
                 textStyle: {
@@ -344,9 +344,22 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
                 {isVisible ? 'Hide Tasks' : 'View Tasks'}
                 <div style={{
                   transform: isVisible ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.3s ease-in-out'
+                  transition: 'transform 0.3s ease-in-out',
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'transparent',
                 }}>
-                  <LuChevronDown />
+                  <LuChevronDown
+                    color="white"
+                    size={20}
+                    style={{
+                      background: 'transparent',
+                      borderRadius: 0,
+                      boxShadow: 'none',
+                      padding: 0,
+                      display: 'block',
+                    }}
+                  />
                 </div>
               </button>
               
@@ -398,7 +411,16 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
                     justifyContent: 'center'
                   }}
                 >
-                  <LuX size={20} />
+                  <LuX
+                    size={20}
+                    style={{
+                      background: 'transparent',
+                      borderRadius: 0,
+                      boxShadow: 'none',
+                      padding: 0,
+                      display: 'block',
+                    }}
+                  />
                 </button>
               </div>
 

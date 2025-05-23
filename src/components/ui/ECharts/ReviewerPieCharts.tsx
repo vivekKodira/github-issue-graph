@@ -2,6 +2,7 @@ import { ECharts } from "@/components/ui/ECharts/ECharts.js";
 import { useState, useEffect, useMemo } from "react";
 import { Box, HStack, Text, Select, createListCollection } from "@chakra-ui/react";
 import pieChartTemplate from "./templates/pieChartTemplate.js";
+import { CustomCheckboxIndicator } from "./CustomCheckboxIndicator";
 
 interface ReviewComment {
   author: string;
@@ -135,7 +136,11 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
               {collection.items.map((item) => (
                 <Select.Item key={item.value} item={item}>
                   {item.label}
-                  <Select.ItemIndicator />
+                  <Select.ItemIndicator>
+                    {({ "data-state": state }) => (
+                      <CustomCheckboxIndicator checked={state === "checked"} />
+                    )}
+                  </Select.ItemIndicator>
                 </Select.Item>
               ))}
             </Select.Content>
@@ -143,6 +148,24 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
         </Select.Root>
       </HStack>
       <ECharts option={chartOptions} style={styleOptions} />
+      <style>
+        {`
+          [data-state="checked"] .reviewer-checkbox-indicator {
+            background: #3182ce !important;
+            border-color: #63b3ed !important;
+          }
+          [data-state="checked"] .custom-checkbox-checkmark {
+            display: block !important;
+          }
+          [data-state="unchecked"] .reviewer-checkbox-indicator {
+            background: #2d3748 !important;
+            border-color: #718096 !important;
+          }
+          [data-state="unchecked"] .custom-checkbox-checkmark {
+            display: none !important;
+          }
+        `}
+      </style>
     </Box>
   );
 }; 
