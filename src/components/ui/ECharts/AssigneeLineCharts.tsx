@@ -230,6 +230,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
               title: {
                 text: "Tasks per Sprint - All Assignees",
                 left: "center",
+                top: 20,
                 textStyle: {
                   color: '#ffffff'
                 }
@@ -241,7 +242,18 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
                 data: assigneeSeries.map(series => series.name),
                 textStyle: {
                   color: '#ffffff'
-                }
+                },
+                top: 60,
+                type: 'scroll',
+                orient: 'horizontal',
+                padding: [0, 20]
+              },
+              grid: {
+                top: 100,
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
               },
               xAxis: {
                 type: "category",
