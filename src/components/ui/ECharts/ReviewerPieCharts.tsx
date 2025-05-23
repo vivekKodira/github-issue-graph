@@ -48,6 +48,13 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
   const [filteredReviewers, setFilteredReviewers] = useState<string[]>([]);
   const [allReviewers, setAllReviewers] = useState<string[]>([]);
 
+  // Initialize filtered reviewers when allReviewers changes
+  useEffect(() => {
+    if (allReviewers.length > 0 && filteredReviewers.length === 0) {
+      setFilteredReviewers(allReviewers);
+    }
+  }, [allReviewers]);
+
   // Create the collection for the Select component
   const collection = useMemo(() => {
     return createListCollection({
