@@ -1,11 +1,9 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
-import { PROJECT_KEYS } from '@/config/projectKeys';
-import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { Box } from "@chakra-ui/react";
-import { TaskFormat } from '@/util/taskConverter';
 import { Insight } from './types';
+import { ChartDropdown } from './ChartDropdown';
 
 interface ReviewComment {
   body: string;
@@ -27,19 +25,10 @@ interface PullRequest {
   author: string;
   assignees: string[];
   labels: string[];
-  reviews: {
-    state: string;
-    author: string;
-    comments: ReviewComment[];
-  }[];
+  reviewComments: ReviewComment[];
   additions: number;
   deletions: number;
   changedFiles: number;
-}
-
-interface ReviewerData {
-  reviewer: string;
-  tasks: TaskFormat[];
 }
 
 export const createReviewerLineChartData = (prs: PullRequest[]) => {
@@ -48,25 +37,30 @@ export const createReviewerLineChartData = (prs: PullRequest[]) => {
 
   // Initialize data structures
   prs.forEach((pr) => {
-    if (!pr.reviews || pr.reviews.length === 0) {
-      return; // Skip PRs with no reviews
+    if (!pr.reviewComments || pr.reviewComments.length === 0) {
+      return; // Skip PRs with no review comments
     }
 
     // Get the month from the PR creation date
     const prDate = new Date(pr.createdAt);
     const monthKey = `${prDate.getFullYear()}-${String(prDate.getMonth() + 1).padStart(2, '0')}`;
 
-    // Process reviews
-    pr.reviews.forEach((review) => {
+    // Process review comments
+    pr.reviewComments.forEach((comment) => {
+      // Skip comments from the PR author
+      if (comment.author === pr.author) {
+        return;
+      }
+
       // Track reviewer
-      reviewerData[review.author] = true;
+      reviewerData[comment.author] = true;
       if (!timeData[monthKey]) {
         timeData[monthKey] = {};
       }
-      if (!timeData[monthKey][review.author]) {
-        timeData[monthKey][review.author] = 0;
+      if (!timeData[monthKey][comment.author]) {
+        timeData[monthKey][comment.author] = 0;
       }
-      timeData[monthKey][review.author]++;
+      timeData[monthKey][comment.author]++;
     });
   });
 
@@ -115,25 +109,30 @@ const createEmptyChartOptions = (): EChartsOption => ({
   }] as LineSeriesOption[]
 });
 
-export const ReviewerLineCharts = ({ prs, styleOptions, searchTerm, onInsightsGenerated }) => {
-  const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([]);
+export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
+  const [chartOptions, setChartOptions] = useState<EChartsOption>(createEmptyChartOptions());
+  const [selectedReviewers, setSelectedReviewers] = useState<string[]>([]);
+  const [availableReviewers, setAvailableReviewers] = useState<string[]>([]);
   const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
 
   useEffect(() => {
-    if (!prs?.length) {
-      setChartOptionsArray([createEmptyChartOptions()]);
+    console.log('ReviewerLineCharts: flattenedData received:', flattenedData);
+    if (!flattenedData?.length) {
+      console.log('ReviewerLineCharts: No data available');
+      setChartOptions(createEmptyChartOptions());
       if (onInsightsGenerated) {
         onInsightsGenerated([]);
       }
       return;
     }
 
-    const { months, reviewerSeries } = createReviewerLineChartData(prs);
+    const { months, reviewerSeries } = createReviewerLineChartData(flattenedData);
+    console.log('ReviewerLineCharts: Processed data:', { months, reviewerSeries });
     
     // Generate insights from chart data
     const insights: Insight[] = [];
     reviewerSeries.forEach(series => {
-      const data = series.data;
+      const data = series.data as number[];
       if (data.length >= 2) {
         const currentValue = data[data.length - 1];
         const previousValue = data[data.length - 2];
@@ -166,66 +165,71 @@ export const ReviewerLineCharts = ({ prs, styleOptions, searchTerm, onInsightsGe
       : reviewerSeries;
 
     const reviewers = filteredReviewerSeries.map(series => String(series.name));
+    console.log('ReviewerLineCharts: Available reviewers:', reviewers);
+    setAvailableReviewers(reviewers);
+    
+    // Set first reviewer as default if none selected
+    if (reviewers.length > 0 && selectedReviewers.length === 0) {
+      console.log('ReviewerLineCharts: Setting default reviewer:', reviewers[0]);
+      setSelectedReviewers([reviewers[0]]);
+    }
+  }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
 
-    // Create options for all reviewers chart
-    const allReviewersOptions: EChartsOption = {
-      title: {
-        text: "Comments Given by Reviewers per Month",
-        left: "center",
-        top: 20,
-        textStyle: { color: '#ffffff' }
-      },
-      tooltip: { trigger: "axis" },
-      legend: {
-        data: reviewers,
-        top: 60,
-        textStyle: { color: '#ffffff' }
-      },
-      grid: { top: 100 },
-      xAxis: {
-        type: "category",
-        data: months,
-        axisLabel: { color: '#ffffff' }
-      },
-      yAxis: {
-        type: "value",
-        name: "Number of Comments",
-        axisLabel: { color: '#ffffff' }
-      },
-      series: filteredReviewerSeries,
-    };
+  useEffect(() => {
+    if (selectedReviewers.length === 0 || !flattenedData?.length) return;
+    
+    const { months, reviewerSeries } = createReviewerLineChartData(flattenedData);
+    const selectedSeries = reviewerSeries.filter(series => selectedReviewers.includes(String(series.name)));
+    
+    if (selectedSeries.length > 0) {
+      const newChartOptions: EChartsOption = {
+        title: {
+          text: '',
+          left: "center",
+          textStyle: { color: '#ffffff' }
+        },
+        tooltip: { trigger: "axis" },
+        xAxis: {
+          type: "category",
+          data: months,
+          axisLabel: { color: '#ffffff' }
+        },
+        yAxis: {
+          type: "value",
+          name: "Number of Comments",
+          axisLabel: { color: '#ffffff' }
+        },
+        series: selectedSeries,
+      };
+      setChartOptions(newChartOptions);
+    }
+  }, [selectedReviewers, flattenedData]);
 
-    // Create individual charts for reviewers
-    const individualReviewerCharts: EChartsOption[] = filteredReviewerSeries.map((series) => ({
-      title: {
-        text: `Comments Given - ${series.name}`,
-        left: "center",
-        textStyle: { color: '#ffffff' }
-      },
-      tooltip: { trigger: "axis" },
-      xAxis: {
-        type: "category",
-        data: months,
-        axisLabel: { color: '#ffffff' }
-      },
-      yAxis: {
-        type: "value",
-        name: "Number of Comments",
-        axisLabel: { color: '#ffffff' }
-      },
-      series: [series],
-    }));
-
-    setChartOptionsArray([allReviewersOptions, ...individualReviewerCharts]);
-  }, [prs, searchTerm, onInsightsGenerated, previousInsights]);
+  const handleReviewerChange = (values: string[]) => {
+    setSelectedReviewers(values);
+  };
 
   return (
-    <>
-      {chartOptionsArray.map((options, index) => (
-        <div key={index}>
-          <ECharts option={options} style={styleOptions} />
-        </div>
-      ))}
-    </>
+    <Box>
+      <h3 style={{ 
+        color: '#ffffff', 
+        marginBottom: '16px',
+        fontSize: '18px',
+        fontWeight: 'bold'
+      }}>
+        Comments Given by Reviewers
+      </h3>
+      <ChartDropdown
+        title="Select reviewer"
+        options={availableReviewers}
+        selectedValues={selectedReviewers}
+        onSelectionChange={handleReviewerChange}
+        multiple={false}
+        placeholder="Select a reviewer"
+      />
+      <Box w="100%" h="350px">
+        <ECharts option={chartOptions} style={styleOptions} />
+      </Box>
+    </Box>
   );
 }; 

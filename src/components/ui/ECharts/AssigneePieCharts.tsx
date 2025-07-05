@@ -4,6 +4,7 @@ import { Box } from "@chakra-ui/react";
 import pieChartTemplate from "./templates/pieChartTemplate.js";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { ChartDropdown } from './ChartDropdown';
 
 export const createPieChartData = (tasks, projectKeys) => {
   const assigneeData = {};
@@ -42,8 +43,8 @@ export const createPieChartData = (tasks, projectKeys) => {
 export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) => {
   const { projectKeys } = useProjectKeys();
   const [chartOptions, setChartOptions] = useState(pieChartTemplate);
-  const [selectedAssignee, setSelectedAssignee] = useState("");
-  const [availableAssignees, setAvailableAssignees] = useState([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [availableAssignees, setAvailableAssignees] = useState<string[]>([]);
 
   useEffect(() => {
     const pieData = createPieChartData(flattenedData, projectKeys);
@@ -60,16 +61,16 @@ export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) =
     setAvailableAssignees(assignees);
     
     // Set first assignee as default if none selected
-    if (assignees.length > 0 && !selectedAssignee) {
-      setSelectedAssignee(assignees[0]);
+    if (assignees.length > 0 && selectedAssignees.length === 0) {
+      setSelectedAssignees([assignees[0]]);
     }
-  }, [flattenedData, projectKeys, searchTerm, selectedAssignee]);
+  }, [flattenedData, projectKeys, searchTerm]);
 
   useEffect(() => {
-    if (!selectedAssignee) return;
+    if (selectedAssignees.length === 0) return;
     
     const pieData = createPieChartData(flattenedData, projectKeys);
-    const selectedData = pieData.find(({ assignee }) => assignee === selectedAssignee);
+    const selectedData = pieData.find(({ assignee }) => assignee === selectedAssignees[0]);
     
     if (selectedData) {
       const newChartOptions = {
@@ -86,10 +87,10 @@ export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) =
       };
       setChartOptions(newChartOptions);
     }
-  }, [selectedAssignee, flattenedData, projectKeys]);
+  }, [selectedAssignees, flattenedData, projectKeys]);
 
-  const handleAssigneeChange = (event) => {
-    setSelectedAssignee(event.target.value);
+  const handleAssigneeChange = (values: string[]) => {
+    setSelectedAssignees(values);
   };
 
   return (
@@ -102,25 +103,14 @@ export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) =
       }}>
         Tasks by Size
       </h3>
-      <select
-        value={selectedAssignee}
-        onChange={handleAssigneeChange}
-        style={{
-          padding: '8px',
-          borderRadius: '4px',
-          width: '100%',
-          background: '#2d3748',
-          color: '#ffffff',
-          border: '1px solid #4a5568',
-          marginBottom: '16px'
-        }}
-      >
-        {availableAssignees.map((assignee) => (
-          <option key={assignee} value={assignee}>
-            {assignee}
-          </option>
-        ))}
-      </select>
+      <ChartDropdown
+        title="Select assignee"
+        options={availableAssignees}
+        selectedValues={selectedAssignees}
+        onSelectionChange={handleAssigneeChange}
+        multiple={false}
+        placeholder="Select an assignee"
+      />
       <Box w="100%" h="350px">
         <ECharts option={chartOptions} style={styleOptions} />
       </Box>

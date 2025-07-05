@@ -1,11 +1,9 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
-import { PROJECT_KEYS } from '@/config/projectKeys';
-import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { Box } from "@chakra-ui/react";
-import { TaskFormat } from '@/util/taskConverter';
 import { Insight } from './types';
+import { ChartDropdown } from './ChartDropdown';
 
 interface ReviewComment {
   body: string;
@@ -37,20 +35,7 @@ interface PullRequest {
   changedFiles: number;
 }
 
-interface AuthorData {
-  author: string;
-  tasks: TaskFormat[];
-}
 
-interface AuthorLineChartsProps {
-  flattenedData: any;
-  prs: PullRequest[];
-  styleOptions: {
-    width: string;
-    height: string;
-  };
-  onInsightsGenerated: (insights: Insight[]) => void;
-}
 
 export const createAuthorLineChartData = (prs: PullRequest[]) => {
   const timeData: Record<string, Record<string, number>> = {};
@@ -135,12 +120,14 @@ const formatMonthName = (monthStr: string): string => {
 };
 
 export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
-  const [chartOptionsArray, setChartOptionsArray] = useState<EChartsOption[]>([createEmptyChartOptions()]);
+  const [chartOptions, setChartOptions] = useState<EChartsOption>(createEmptyChartOptions());
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
+  const [availableAuthors, setAvailableAuthors] = useState<string[]>([]);
   const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
 
   useEffect(() => {
     if (!flattenedData?.length) {
-      setChartOptionsArray([createEmptyChartOptions()]);
+      setChartOptions(createEmptyChartOptions());
       if (onInsightsGenerated) {
         onInsightsGenerated([]);
       }
@@ -196,66 +183,69 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
       : authorSeries;
 
     const authors = filteredAuthorSeries.map(series => String(series.name));
-
-    // Create options for all authors chart
-    const allAuthorsOptions: EChartsOption = {
-      title: {
-        text: "Comments Received by Authors per Month",
-        left: "center",
-        top: 20,
-        textStyle: { color: '#ffffff' }
-      },
-      tooltip: { trigger: "axis" },
-      legend: {
-        data: authors,
-        top: 60,
-        textStyle: { color: '#ffffff' }
-      },
-      grid: { top: 100 },
-      xAxis: {
-        type: "category",
-        data: months,
-        axisLabel: { color: '#ffffff' }
-      },
-      yAxis: {
-        type: "value",
-        name: "Number of Comments",
-        axisLabel: { color: '#ffffff' }
-      },
-      series: filteredAuthorSeries,
-    };
-
-    // Create individual charts for authors
-    const individualAuthorCharts: EChartsOption[] = filteredAuthorSeries.map((series) => ({
-      title: {
-        text: `Comments Received - ${series.name}`,
-        left: "center",
-        textStyle: { color: '#ffffff' }
-      },
-      tooltip: { trigger: "axis" },
-      xAxis: {
-        type: "category",
-        data: months,
-        axisLabel: { color: '#ffffff' }
-      },
-      yAxis: {
-        type: "value",
-        name: "Number of Comments",
-        axisLabel: { color: '#ffffff' }
-      },
-      series: [series],
-    }));
-
-    setChartOptionsArray([allAuthorsOptions, ...individualAuthorCharts]);
+    setAvailableAuthors(authors);
+    
+    // Set first author as default if none selected
+    if (authors.length > 0 && selectedAuthors.length === 0) {
+      setSelectedAuthors([authors[0]]);
+    }
   }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
 
+  useEffect(() => {
+    if (selectedAuthors.length === 0 || !flattenedData?.length) return;
+    
+    const { months, authorSeries } = createAuthorLineChartData(flattenedData);
+    const selectedSeries = authorSeries.filter(series => selectedAuthors.includes(String(series.name)));
+    
+    if (selectedSeries.length > 0) {
+      const newChartOptions: EChartsOption = {
+        title: {
+          text: '',
+          left: "center",
+          textStyle: { color: '#ffffff' }
+        },
+        tooltip: { trigger: "axis" },
+        xAxis: {
+          type: "category",
+          data: months,
+          axisLabel: { color: '#ffffff' }
+        },
+        yAxis: {
+          type: "value",
+          name: "Number of Comments",
+          axisLabel: { color: '#ffffff' }
+        },
+        series: selectedSeries,
+      };
+      setChartOptions(newChartOptions);
+    }
+  }, [selectedAuthors, flattenedData]);
+
+  const handleAuthorChange = (values: string[]) => {
+    setSelectedAuthors(values);
+  };
+
   return (
-    <>
-      {chartOptionsArray.map((options, index) => (
-        <div key={index}>
-          <ECharts option={options} style={styleOptions} />
-        </div>
-      ))}
-    </>
+    <Box>
+      <h3 style={{ 
+        color: '#ffffff', 
+        marginBottom: '16px',
+        fontSize: '18px',
+        fontWeight: 'bold'
+      }}>
+        Comments Received by Authors
+      </h3>
+      <ChartDropdown
+        title="Select author"
+        options={availableAuthors}
+        selectedValues={selectedAuthors}
+        onSelectionChange={handleAuthorChange}
+        multiple={false}
+        placeholder="Select an author"
+      />
+      <Box w="100%" h="350px">
+        <ECharts option={chartOptions} style={styleOptions} />
+      </Box>
+    </Box>
   );
 }; 
