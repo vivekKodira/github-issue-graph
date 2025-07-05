@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { processBarChartData } from "./createGraphData";
+import { sortSprintsNumerically } from '@/util/commonFunctions';
 
 export const SprintChart = ({ flattenedData, styleOptions }) => {
   const { projectKeys } = useProjectKeys();
@@ -11,11 +12,14 @@ export const SprintChart = ({ flattenedData, styleOptions }) => {
   useEffect(() => {
     if (!flattenedData?.length) return;
 
-    // Sort tasks by sprint
+    // Sort tasks by sprint using the sortSprintsNumerically function
     const sortedTasks = [...flattenedData].sort((a, b) => {
       const sprintA = a[projectKeys[PROJECT_KEYS.SPRINT].value] || 'No Sprint';
       const sprintB = b[projectKeys[PROJECT_KEYS.SPRINT].value] || 'No Sprint';
-      return sprintA.localeCompare(sprintB);
+      
+      // Use sortSprintsNumerically for proper numeric sorting of sprint names
+      const sortedSprints = sortSprintsNumerically([sprintA, sprintB]);
+      return sortedSprints[0] === sprintA ? -1 : 1;
     });
 
     const options = processBarChartData(sortedTasks, projectKeys[PROJECT_KEYS.SPRINT].value, projectKeys);
