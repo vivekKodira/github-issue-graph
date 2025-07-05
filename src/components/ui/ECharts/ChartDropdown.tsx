@@ -51,7 +51,12 @@ export const ChartDropdown = ({
           <Select.Content>
             {collection.items.map((item) => (
               <Select.Item key={item.value} item={item}>
-                {item.label}
+                <HStack justify="space-between" width="100%">
+                  <span>{item.label}</span>
+                  {selectedValues.includes(item.value) && (
+                    <span style={{ color: "#38A169" }}>✓</span>
+                  )}
+                </HStack>
               </Select.Item>
             ))}
           </Select.Content>

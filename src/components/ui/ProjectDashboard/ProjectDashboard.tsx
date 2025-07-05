@@ -277,7 +277,7 @@ export const ProjectDashboard = ({
 
             {/* Team Analysis Tab */}
             <Tabs.Content value="team">
-              <VStack gap={6}>
+              <VStack gap={12}>
                 <Box p={6} borderRadius="lg" borderWidth="1px" width="100%">
                   <Input
                     placeholder="Search by name..."

@@ -182,7 +182,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     // Create a single chart with all selected assignees
     const singleChart = {
       title: {
-        text: `Tasks Value per Sprint`,
+        text: '', // Remove chart title
         left: "center",
         textStyle: {
           color: '#ffffff'
@@ -232,6 +232,9 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
 
   return (
     <Stack gap={4}>
+      <h3 style={{ color: '#ffffff', marginBottom: '0', fontSize: '18px', fontWeight: 'bold' }}>
+        Tasks Value per Sprint
+      </h3>
       {/* Assignee Selection Dropdown */}
       <ChartDropdown
         title="Select assignees"

@@ -229,6 +229,7 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
     <Box>
       <h3 style={{ 
         color: '#ffffff', 
+        marginTop: '32px',
         marginBottom: '16px',
         fontSize: '18px',
         fontWeight: 'bold'

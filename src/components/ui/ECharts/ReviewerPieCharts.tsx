@@ -88,13 +88,6 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
     });
     
     const options = JSON.parse(JSON.stringify(pieChartTemplate));
-    options.title = {
-      text: 'Review Comments by Reviewer',
-      left: 'center',
-      textStyle: {
-        color: '#ffffff'
-      }
-    };
     options.series = [{
       type: 'pie',
       radius: '50%',
@@ -113,6 +106,7 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
 
   return (
     <Box>
+        <h3 style={{ color: '#ffffff', marginBottom: '0', fontSize: '18px', fontWeight: 'bold' }}>Review Comments by Reviewer</h3>
       <HStack marginBottom={4} gap={4}>
         <Text color="white">Select reviewers:</Text>
         <Select.Root
