@@ -5,6 +5,7 @@ import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { Box, Table, Stack } from "@chakra-ui/react";
 import { LuChevronDown, LuX } from "react-icons/lu";
 import { TaskFormat } from '@/util/taskConverter';
+import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
 
 interface AssigneeData {
@@ -52,7 +53,7 @@ export const createLineChartData = (tasks, projectKeys) => {
   });
 
   // Sort sprints
-  const sprints = Object.keys(sprintData).sort();
+  const sprints = sortSprintsNumerically(Object.keys(sprintData));
   const assignees = Object.keys(assigneeData);
 
   // Create series data for all assignees

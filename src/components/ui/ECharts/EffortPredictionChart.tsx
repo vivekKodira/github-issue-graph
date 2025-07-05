@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { TaskFormat } from '@/util/taskConverter';
+import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
 
 interface SprintData {
@@ -52,7 +53,7 @@ export const EffortPredictionChart = ({
             sprintData[sprint].tasks.push(task);
         });
 
-        const sortedSprints = Array.from(sprints).sort();
+        const sortedSprints = sortSprintsNumerically(Array.from(sprints));
         
         // Calculate total completed effort and average effort per sprint
         const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => 

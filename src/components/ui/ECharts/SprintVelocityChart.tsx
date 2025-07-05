@@ -2,8 +2,9 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
-import { Box } from "@chakra-ui/react";
+
 import { TaskFormat } from '@/util/taskConverter';
+import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
 
 interface SprintData {
@@ -11,9 +12,7 @@ interface SprintData {
     tasks: TaskFormat[];
 }
 
-export const createSprintVelocityChartData = (tasks: TaskFormat[], projectKeys: any) => {
-    // ... existing code ...
-};
+
 
 export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGenerated }) => {
     const { projectKeys } = useProjectKeys();
@@ -50,7 +49,7 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
             sprintData[sprint].tasks.push(task);
         });
 
-        const sortedSprints = Array.from(sprints).sort();
+        const sortedSprints = sortSprintsNumerically(Array.from(sprints));
         
         // Generate insights from chart data
         const insights: Insight[] = [];

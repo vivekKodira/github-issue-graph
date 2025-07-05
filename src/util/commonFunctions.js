@@ -110,3 +110,29 @@ export const fetchFromCache = ({projectID, repository, cacheKey}) => {
   }
 }
 
+/**
+ * Sorts sprint names numerically (e.g., Sprint-1, Sprint-2, Sprint-10, Sprint-11)
+ * instead of alphabetically which would put Sprint-10 before Sprint-2
+ * @param {string[]} sprints - Array of sprint names to sort
+ * @returns {string[]} - Sorted array of sprint names
+ */
+export const sortSprintsNumerically = (sprints) => {
+    return sprints.sort((a, b) => {
+        // Handle null/undefined values
+        if (!a && !b) return 0;
+        if (!a) return -1;
+        if (!b) return 1;
+        
+        // Extract sprint numbers for proper numeric sorting
+        const aMatch = a.match(/Sprint-(\d+)/);
+        const bMatch = b.match(/Sprint-(\d+)/);
+        
+        if (aMatch && bMatch) {
+            return parseInt(aMatch[1]) - parseInt(bMatch[1]);
+        }
+        
+        // Fallback to string sort if pattern doesn't match
+        return a.localeCompare(b);
+    });
+};
+
