@@ -1,7 +1,7 @@
 import { ECharts } from "@/components/ui/ECharts/ECharts.js";
 import { useState, useEffect } from "react";
-import { Box, Wrap, WrapItem } from "@chakra-ui/react";
-import pieChartTemplate from "./templates/pieChartTemplate.js"; // You'll need to create this template
+import { Box } from "@chakra-ui/react";
+import pieChartTemplate from "./templates/pieChartTemplate.js";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 
@@ -41,7 +41,9 @@ export const createPieChartData = (tasks, projectKeys) => {
 
 export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) => {
   const { projectKeys } = useProjectKeys();
-  const [chartOptionsArray, setChartOptionsArray] = useState([]);
+  const [chartOptions, setChartOptions] = useState(pieChartTemplate);
+  const [selectedAssignee, setSelectedAssignee] = useState("");
+  const [availableAssignees, setAvailableAssignees] = useState([]);
 
   useEffect(() => {
     const pieData = createPieChartData(flattenedData, projectKeys);
@@ -53,31 +55,75 @@ export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) =
         )
       : pieData;
     
-    const newChartOptions = filteredData.map(({ assignee, data }) => ({
-      ...pieChartTemplate,
-      title: {
-        ...pieChartTemplate.title,
-        text: `Tasks by Size - ${assignee}`
-      },
-      series: [{
-        ...pieChartTemplate.series[0],
-        name: 'Size',
-        data: data
-      }]
-    }));
+    // Extract available assignees
+    const assignees = filteredData.map(({ assignee }) => assignee);
+    setAvailableAssignees(assignees);
+    
+    // Set first assignee as default if none selected
+    if (assignees.length > 0 && !selectedAssignee) {
+      setSelectedAssignee(assignees[0]);
+    }
+  }, [flattenedData, projectKeys, searchTerm, selectedAssignee]);
 
-    setChartOptionsArray(newChartOptions);
-  }, [flattenedData, projectKeys, searchTerm]);
+  useEffect(() => {
+    if (!selectedAssignee) return;
+    
+    const pieData = createPieChartData(flattenedData, projectKeys);
+    const selectedData = pieData.find(({ assignee }) => assignee === selectedAssignee);
+    
+    if (selectedData) {
+      const newChartOptions = {
+        ...pieChartTemplate,
+        title: {
+          ...pieChartTemplate.title,
+          text: ''
+        },
+        series: [{
+          ...pieChartTemplate.series[0],
+          name: 'Size',
+          data: selectedData.data
+        }]
+      };
+      setChartOptions(newChartOptions);
+    }
+  }, [selectedAssignee, flattenedData, projectKeys]);
+
+  const handleAssigneeChange = (event) => {
+    setSelectedAssignee(event.target.value);
+  };
 
   return (
-    <Wrap gap={4} justify="center" align="start">
-      {chartOptionsArray.map((options, index) => (
-        <WrapItem key={index} flexBasis={{ base: "100%", md: "calc(50% - 16px)", lg: "calc(33.333% - 16px)" }}>
-          <Box w="100%" h="350px">
-            <ECharts option={options} style={styleOptions} />
-          </Box>
-        </WrapItem>
-      ))}
-    </Wrap>
+    <Box>
+      <h3 style={{ 
+        color: '#ffffff', 
+        marginBottom: '16px',
+        fontSize: '18px',
+        fontWeight: 'bold'
+      }}>
+        Tasks by Size
+      </h3>
+      <select
+        value={selectedAssignee}
+        onChange={handleAssigneeChange}
+        style={{
+          padding: '8px',
+          borderRadius: '4px',
+          width: '100%',
+          background: '#2d3748',
+          color: '#ffffff',
+          border: '1px solid #4a5568',
+          marginBottom: '16px'
+        }}
+      >
+        {availableAssignees.map((assignee) => (
+          <option key={assignee} value={assignee}>
+            {assignee}
+          </option>
+        ))}
+      </select>
+      <Box w="100%" h="350px">
+        <ECharts option={chartOptions} style={styleOptions} />
+      </Box>
+    </Box>
   );
 }; 
