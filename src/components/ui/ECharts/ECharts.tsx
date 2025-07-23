@@ -1,13 +1,13 @@
 //SOURCE: https://dev.to/manufac/using-apache-echarts-with-react-and-typescript-353k
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import * as echarts from 'echarts';
 import type { CSSProperties } from "react";
-import type { EChartsOption, ECharts, SetOptionOpts } from "echarts";
+import type { EChartsOption, SetOptionOpts } from "echarts";
 import type { LiquidFillGaugeOption } from "./LiquidFillGaugeOption";
 import "echarts-wordcloud";
 
-export interface EChartsProps {
+interface EChartsProps {
   option: EChartsOption | LiquidFillGaugeOption;
   style?: CSSProperties;
   settings?: SetOptionOpts;
@@ -15,15 +15,21 @@ export interface EChartsProps {
   theme?: "light" | "dark";
 }
 
-export const ECharts = ({
+export const ECharts = forwardRef<
+  { getEchartsInstance: () => echarts.ECharts | null },
+  EChartsProps
+>(function ECharts({
   option,
   style,
   settings,
   loading,
   theme,
-}: EChartsProps): JSX.Element => {
+}, ref) {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+  useImperativeHandle(ref, () => ({
+    getEchartsInstance: () => chartInstance.current
+  }), []);
 
   useEffect(() => {
     const container = chartRef.current;
@@ -83,4 +89,4 @@ export const ECharts = ({
   }, [loading, theme]);
 
   return <div ref={chartRef} style={{ width: "100%", height: "100px", ...style }} />;
-};
+});

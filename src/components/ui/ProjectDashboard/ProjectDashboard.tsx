@@ -17,6 +17,8 @@ import { AssigneePieCharts } from "@/components/ui/ECharts/AssigneePieCharts";
 import { AssigneeLineCharts } from "@/components/ui/ECharts/AssigneeLineCharts";
 import "./ProjectDashboard.css";
 import { PRReviewChart } from "../ECharts/PRReviewChart";
+import { AuthorPRFrequencyChart } from "../ECharts/AuthorPRFrequencyChart";
+import { AuthorPRIntervalChart } from "../ECharts/AuthorPRIntervalChart";
 import { PRLifecycleChart } from "../ECharts/PRLifecycleChart";
 import { CodeChurnChart } from "../ECharts/CodeChurnChart";
 import { ReviewQualityChart } from "../ECharts/ReviewQualityChart";
@@ -329,6 +331,12 @@ export const ProjectDashboard = ({
                     searchTerm={searchTerm}
                     onInsightsGenerated={handleInsightsGenerated}
                   />
+                </Box>
+                <Box p={6} borderRadius="lg" borderWidth="1px" width="100%">
+                  <AuthorPRFrequencyChart prs={memoizedPRs} styleOptions={styleOptions} />
+                </Box>
+                <Box p={6} borderRadius="lg" borderWidth="1px" width="100%">
+                  <AuthorPRIntervalChart prs={memoizedPRs} styleOptions={styleOptions} />
                 </Box>
               </VStack>
             </Tabs.Content>
