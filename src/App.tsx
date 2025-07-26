@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ProjectDashboard } from "@/components/ui/ProjectDashboard/ProjectDashboard";
 import RepoConfiguration from "@/components/ui/RepoConfiguration/RepoConfiguration";
 import { ProjectKeysProvider } from "@/context/ProjectKeysContext";
+import { Header } from "@/components/ui/Header/Header";
 
 function App() {
   const [repoOwner, setRepoOwner] = useState("");
@@ -46,6 +47,9 @@ function App() {
   return (
     <ProjectKeysProvider>
       <Toaster />
+      
+      <Header />
+
       <RepoConfiguration
         repoOwner={repoOwner}
         repository={repository}
