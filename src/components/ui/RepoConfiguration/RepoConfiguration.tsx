@@ -91,6 +91,7 @@ function RepoConfiguration({
         <Tabs.List>
           <Tabs.Trigger value="basic">Basic Configuration</Tabs.Trigger>
           <Tabs.Trigger value="keys">Project Keys</Tabs.Trigger>
+          <Tabs.Trigger value="readme">ReadMe</Tabs.Trigger>
         </Tabs.List>
 
         {/* Basic Configuration Tab */}
@@ -208,6 +209,15 @@ function RepoConfiguration({
                 {config.required && !config.value && <FormErrorMessage>{config.label} is required</FormErrorMessage>}
               </FormControl>
             ))}
+          </Stack>
+        </Tabs.Content>
+
+        {/* ReadMe Tab */}
+        <Tabs.Content value="readme">
+          <Stack direction="column" mt={4} maxW="50%" mx="auto" gap={4}>
+            <Text fontSize="md" lineHeight="1.6">
+              I built this React application as a fun project using <a href="https://www.cursor.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'blue', textDecoration: 'underline' }}>Cursor</a> to help me visualize my GitHub project issues and pull requests through interactive charts and graphs. It helps me understand my team's progress, performance patterns, and code review behaviors. I use it to track sprint velocity, analyze workload distribution, and identify trends in our development process. You are welcome to use it.
+            </Text>
           </Stack>
         </Tabs.Content>
       </Tabs.Root>
