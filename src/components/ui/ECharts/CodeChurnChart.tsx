@@ -1,5 +1,6 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export const CodeChurnChart = ({ prs, styleOptions }) => {
     const [chartOptions, setChartOptions] = useState(null);
@@ -137,7 +138,11 @@ export const CodeChurnChart = ({ prs, styleOptions }) => {
 
     return (
         <div>
-            {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+            {chartOptions && (
+                <ErrorBoundary chartName="Code Churn">
+                    <ECharts option={chartOptions} style={styleOptions} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 }; 

@@ -5,6 +5,7 @@ import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { TaskFormat } from '@/util/taskConverter';
 import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface SprintData {
     sprint: string;
@@ -59,15 +60,16 @@ export const EffortPredictionChart = ({
         const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => 
             sum + sprintData[sprint].tasks.reduce((sum, task) => 
                 sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0), 0);
-        const averageEffortPerSprint = totalCompletedEffort / sortedSprints.length;
+        const averageEffortPerSprint = sortedSprints.length > 0 ? totalCompletedEffort / sortedSprints.length : 0;
         
         // Calculate remaining effort
         const remainingEffort = plannedEffortForProject - totalCompletedEffort;
         
         // Calculate number of sprints needed based on average effort per sprint
-        const predictedSprints = Math.ceil(remainingEffort / averageEffortPerSprint);
-        const futureSprints = Array.from({ length: predictedSprints }, (_, i) => 
-            `Sprint ${sortedSprints.length + i + 1}`);
+        // Handle edge cases where averageEffortPerSprint is 0 or NaN
+        const predictedSprints = averageEffortPerSprint > 0 ? Math.ceil(remainingEffort / averageEffortPerSprint) : 0;
+        const futureSprints = predictedSprints > 0 ? Array.from({ length: predictedSprints }, (_, i) => 
+            `Sprint ${sortedSprints.length + i + 1}`) : [];
 
         // Generate insights
         const insights: Insight[] = [];
@@ -81,11 +83,17 @@ export const EffortPredictionChart = ({
         const formattedPlannedDate = plannedEndDate ? new Date(plannedEndDate).toLocaleDateString() : 'not set';
 
         // Base insight about timeline
-        let timelineInsight = `Project Timeline: At the current rate of ${averageEffortPerSprint.toFixed(1)} days per sprint, the project will take ${predictedSprints} more sprints to complete. Estimated completion: ${formattedCompletionDate}.`;
+        let timelineInsight = '';
         let severity = 0;
+        
+        if (averageEffortPerSprint > 0) {
+            timelineInsight = `Project Timeline: At the current rate of ${averageEffortPerSprint.toFixed(1)} days per sprint, the project will take ${predictedSprints} more sprints to complete. Estimated completion: ${formattedCompletionDate}.`;
+        } else {
+            timelineInsight = `Project Timeline: No completed effort data available. Unable to predict completion timeline.`;
+        }
 
         // Add planned date comparison if available
-        if (plannedEndDate) {
+        if (plannedEndDate && averageEffortPerSprint > 0) {
             const plannedDate = new Date(plannedEndDate);
             const daysDifference = Math.ceil(
                 (completionDate.getTime() - plannedDate.getTime()) / (1000 * 60 * 60 * 24)
@@ -207,7 +215,7 @@ export const EffortPredictionChart = ({
                     type: 'line',
                     data: [
                         ...Array(sortedSprints.length).fill(null),
-                        ...Array(predictedSprints).fill(averageEffortPerSprint)
+                        ...(predictedSprints > 0 ? Array(predictedSprints).fill(averageEffortPerSprint) : [])
                     ],
                     lineStyle: {
                         type: 'dashed',
@@ -231,7 +239,11 @@ export const EffortPredictionChart = ({
 
     return (
         <div>
-            {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+            {chartOptions && (
+                <ErrorBoundary chartName="Effort Prediction">
+                    <ECharts option={chartOptions} style={styleOptions} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 };

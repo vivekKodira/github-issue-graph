@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Box, HStack, Text, Select, createListCollection } from "@chakra-ui/react";
 import pieChartTemplate from "./templates/pieChartTemplate.js";
 import { CustomCheckboxIndicator } from "./CustomCheckboxIndicator";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ReviewComment {
   author: string;
@@ -141,7 +142,9 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
           </Select.Positioner>
         </Select.Root>
       </HStack>
-      <ECharts option={chartOptions} style={styleOptions} />
+      <ErrorBoundary chartName="Reviewer Pie">
+        <ECharts option={chartOptions} style={styleOptions} />
+      </ErrorBoundary>
       <style>
         {`
           [data-state="checked"] .reviewer-checkbox-indicator {

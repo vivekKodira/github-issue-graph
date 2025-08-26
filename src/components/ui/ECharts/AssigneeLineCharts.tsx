@@ -9,6 +9,7 @@ import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
 import { TaskFormat } from '@/util/taskConverter';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface AssigneeData {
   assignee: string;
@@ -324,11 +325,13 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
               })}
             </Box>
             
-            <ECharts option={chartOptionsArray[0]} style={{
-              ...styleOptions,
-              transition: 'all 0.3s ease-in-out',
-              transform: Object.values(isTableVisible).some(isVisible => isVisible) ? 'scale(0.95)' : 'scale(1)'
-            }} />
+            <ErrorBoundary chartName="Assignee Line">
+              <ECharts option={chartOptionsArray[0]} style={{
+                ...styleOptions,
+                transition: 'all 0.3s ease-in-out',
+                transform: Object.values(isTableVisible).some(isVisible => isVisible) ? 'scale(0.95)' : 'scale(1)'
+              }} />
+            </ErrorBoundary>
           </Box>
 
           {/* Drawers for each assignee */}

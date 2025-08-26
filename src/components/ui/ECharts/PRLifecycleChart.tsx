@@ -1,5 +1,6 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export const PRLifecycleChart = ({ prs, styleOptions }) => {
     const [chartOptions, setChartOptions] = useState(null);
@@ -66,7 +67,11 @@ export const PRLifecycleChart = ({ prs, styleOptions }) => {
 
     return (
         <div >
-            {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+            {chartOptions && (
+                <ErrorBoundary chartName="PR Lifecycle">
+                    <ECharts option={chartOptions} style={styleOptions} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 }; 

@@ -1,6 +1,7 @@
 import { LiquidFillGauge } from "./LiquidFillGuage";
 import { useState, useEffect } from "react";
 import { Heading } from "@chakra-ui/react";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 
 export const CompletionChart = ({title, data, styleOptions }) => {
@@ -19,7 +20,9 @@ export const CompletionChart = ({title, data, styleOptions }) => {
         <div >
         <Heading>{title}</Heading>
         {chartOptions && (
-            <LiquidFillGauge option={chartOptions} style={styleOptions} />
+            <ErrorBoundary chartName="Completion">
+                <LiquidFillGauge option={chartOptions} style={styleOptions} />
+            </ErrorBoundary>
         )}
         </div>
     )

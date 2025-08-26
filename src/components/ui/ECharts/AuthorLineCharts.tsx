@@ -4,6 +4,7 @@ import type { EChartsOption, LineSeriesOption } from 'echarts';
 import { Box } from "@chakra-ui/react";
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ReviewComment {
   body: string;
@@ -245,7 +246,9 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
         placeholder="Select an author"
       />
       <Box w="100%" h="350px">
-        <ECharts option={chartOptions} style={styleOptions} />
+        <ErrorBoundary chartName="Author Line">
+          <ECharts option={chartOptions} style={styleOptions} />
+        </ErrorBoundary>
       </Box>
     </Box>
   );

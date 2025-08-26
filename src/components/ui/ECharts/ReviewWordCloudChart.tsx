@@ -17,6 +17,7 @@ import {
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { toaster } from "@/components/ui/toaster";
 import stopWords from './stop_words';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ReviewComment {
     body: string;
@@ -315,7 +316,9 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
                         </VStack>
                     </Center>
                 ) : chartOptions ? (
-                    <ECharts option={chartOptions} style={styleOptions} />
+                    <ErrorBoundary chartName="Review Word Cloud">
+                        <ECharts option={chartOptions} style={styleOptions} />
+                    </ErrorBoundary>
                 ) : null}
             </Box>
 

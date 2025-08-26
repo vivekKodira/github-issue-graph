@@ -6,6 +6,7 @@ import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { TaskFormat } from '@/util/taskConverter';
 import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface SprintData {
     sprint: string;
@@ -146,7 +147,11 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
 
     return (
         <div>
-            {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+            {chartOptions && (
+                <ErrorBoundary chartName="Sprint Velocity">
+                    <ECharts option={chartOptions} style={styleOptions} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 }; 

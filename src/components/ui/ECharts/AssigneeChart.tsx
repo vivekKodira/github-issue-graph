@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import barChartTemplate from "./templates/barChartTemplate.js";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ChartData {
   stackedBySize: {
@@ -109,7 +110,11 @@ export const AssigneeChart = ({ flattenedData, styleOptions, searchTerm }) => {
   
   return (
     <div >
-      {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+      {chartOptions && (
+        <ErrorBoundary chartName="Assignee">
+          <ECharts option={chartOptions} style={styleOptions} />
+        </ErrorBoundary>
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export const PRReviewChart = ({ prs, styleOptions }) => {
     const [chartOptions, setChartOptions] = useState(null);
@@ -145,7 +146,11 @@ export const PRReviewChart = ({ prs, styleOptions }) => {
 
     return (
         <div >
-            {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+            {chartOptions && (
+                <ErrorBoundary chartName="PR Review">
+                    <ECharts option={chartOptions} style={styleOptions} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 }; 

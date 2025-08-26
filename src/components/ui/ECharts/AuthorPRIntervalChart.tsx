@@ -2,6 +2,7 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect, useRef } from "react";
 import { Box, HStack, Table } from "@chakra-ui/react";
 import { ChartDropdown } from "./ChartDropdown";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 // Accepts: prs (array of PRs), styleOptions (for ECharts)
 export const AuthorPRIntervalChart = ({ prs, styleOptions }) => {
@@ -181,7 +182,11 @@ export const AuthorPRIntervalChart = ({ prs, styleOptions }) => {
           placeholder="Select authors"
         />
         <Box w="100%" h="350px">
-          {chartOptions && <ECharts ref={chartRef} option={chartOptions} style={styleOptions} />}
+          {chartOptions && (
+            <ErrorBoundary chartName="Author PR Interval">
+              <ECharts ref={chartRef} option={chartOptions} style={styleOptions} />
+            </ErrorBoundary>
+          )}
         </Box>
       </Box>
       <Box minW="220px" bg="#23272f" borderRadius="md" p={4}>

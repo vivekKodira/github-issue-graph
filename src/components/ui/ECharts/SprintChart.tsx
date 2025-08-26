@@ -4,6 +4,7 @@ import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { processBarChartData } from "./createGraphData";
 import { sortSprintsNumerically } from '@/util/commonFunctions';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export const SprintChart = ({ flattenedData, styleOptions }) => {
   const { projectKeys } = useProjectKeys();
@@ -30,7 +31,11 @@ export const SprintChart = ({ flattenedData, styleOptions }) => {
 
   return (
     <div>
-      {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+      {chartOptions && (
+        <ErrorBoundary chartName="Sprint">
+          <ECharts option={chartOptions} style={styleOptions} />
+        </ErrorBoundary>
+      )}
     </div>
   );
 };
