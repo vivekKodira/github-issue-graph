@@ -3,8 +3,20 @@ import { fetchFromCache, updateLocalCache } from "./commonFunctions.js";
 import issueFetcher from "./issueFetcher.js";
 import { convertGraphQLFormat, TaskFormat } from "./taskConverter.js";
 
+// Debug flag - controlled by localStorage
+// To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
+// To disable: localStorage.removeItem('ENABLE_DEBUG')
+const ENABLE_DEBUG = () => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('ENABLE_DEBUG') === 'true';
+    }
+    return false;
+};
 
-
+const debugLogGraphQLResponse = (item: any) => {
+    if (!ENABLE_DEBUG()) return;
+    console.log('Raw GraphQL Response (first item):', JSON.stringify(item, null, 2));
+};
 
 const GITHUB_API_URL = "https://api.github.com/graphql";
 
@@ -76,6 +88,11 @@ async function fetchAllProjectTasks(projectId: string, githubToken: string): Pro
                 break;
             }
 
+            // Debug: Log first item raw response
+            if (tasks.length === 0 && items.nodes.length > 0) {
+                debugLogGraphQLResponse(items.nodes[0]);
+            }
+
             tasks.push(...items.nodes);
 
             hasNextPage = items.pageInfo.hasNextPage;
@@ -108,6 +125,13 @@ const flattenGraphQLResponse = function (response) {
         flat["state"] = response.content.state;
         flat["Status"] = response.content.state === "closed" ? "Done" : "Todo"; // Match taskConverter format
         flat["html_url"] = response.content.url;
+        
+        // Issue type from repository
+        if (response.content.issueType) {
+            flat["Type"] = typeof response.content.issueType === 'string' 
+                ? response.content.issueType 
+                : response.content.issueType.name;
+        }
 
         // Process sub-issues into links array
         flat["links"] = (response.content.subIssues?.nodes || [])
@@ -160,7 +184,14 @@ async function mainScript({projectID="", githubToken, repository="", repoOwner})
         let fetchedTasks: TaskFormat[];
         if(projectID) {
             const graphqlTasks = await fetchAllProjectTasks(projectID, githubToken);
-            fetchedTasks = graphqlTasks.map(flattenGraphQLResponse).map(convertGraphQLFormat);
+            // Filter out Pull Requests (PRs have mergedAt field) and items without content
+            const issuesOnly = graphqlTasks.filter(item => 
+                item.content && 
+                item.content.title !== null &&
+                !item.content.mergedAt  // PRs have mergedAt, Issues don't
+            );
+            console.log(`Filtered ${graphqlTasks.length - issuesOnly.length} non-issue items (PRs, drafts, etc.)`);
+            fetchedTasks = issuesOnly.map(flattenGraphQLResponse).map(convertGraphQLFormat);
         } else {
             fetchedTasks = await issueFetcher({repository, githubToken, repoOwner});
         }

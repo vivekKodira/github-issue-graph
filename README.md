@@ -127,6 +127,44 @@ If your repository doesn't use these custom fields, some charts and insights may
    npm run dev
    ```
 
+## Debug Mode
+
+The application includes a debug mode for troubleshooting and data inspection. Debug mode is controlled via browser localStorage, so you can enable/disable it without code changes or rebuilding.
+
+### Enable Debug Mode
+
+1. Open your browser's developer console (F12 or Cmd+Option+I on Mac)
+2. Run the following command:
+   ```javascript
+   localStorage.setItem('ENABLE_DEBUG', 'true')
+   ```
+3. Refresh the page
+4. Click "Render" to fetch data
+
+### What Debug Mode Does
+
+When enabled, debug mode will:
+- Log the first issue's data structure to the console
+- Display all available field names
+- Automatically download a `flattened_tasks_debug.json` file with the complete data
+- Log raw GraphQL responses (if using project queries)
+
+### Disable Debug Mode
+
+To disable debug mode, run this in the browser console:
+```javascript
+localStorage.removeItem('ENABLE_DEBUG')
+```
+
+### Use Cases
+
+Debug mode is useful for:
+- Inspecting the data structure of your issues
+- Verifying custom fields are being fetched correctly
+- Troubleshooting GraphQL queries
+- Understanding the flattened data format
+- Testing new custom field configurations
+
 ## Screenshots
 
 ### Project Overview

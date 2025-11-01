@@ -124,8 +124,9 @@ export const sortSprintsNumerically = (sprints) => {
         if (!b) return 1;
         
         // Extract sprint numbers for proper numeric sorting
-        const aMatch = a.match(/Sprint-(\d+)/);
-        const bMatch = b.match(/Sprint-(\d+)/);
+        // Handle both "Sprint-12" and "Sprint -12" formats
+        const aMatch = a.match(/Sprint\s*-(\d+)/);
+        const bMatch = b.match(/Sprint\s*-(\d+)/);
         
         if (aMatch && bMatch) {
             return parseInt(aMatch[1]) - parseInt(bMatch[1]);

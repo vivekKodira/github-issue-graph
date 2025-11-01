@@ -32,6 +32,28 @@ import { ReviewerLineCharts } from "../ECharts/ReviewerLineCharts";
 import { AuthorLineCharts } from "../ECharts/AuthorLineCharts";
 import { Insights } from "../ECharts/Insights";
 import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
+import { IssueAnalysisDashboard } from "../ECharts/IssueAnalysisDashboard";
+
+// Debug flag - controlled by localStorage
+// To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
+// To disable: localStorage.removeItem('ENABLE_DEBUG')
+const ENABLE_DEBUG = () => localStorage.getItem('ENABLE_DEBUG') === 'true';
+
+const debugDownloadData = (data: any, filename: string) => {
+  if (!ENABLE_DEBUG()) return;
+  
+  console.log(`Debug: ${filename} (first item):`, data[0]);
+  console.log(`Debug: All fields in first item:`, Object.keys(data[0] || {}));
+  
+  const dataStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 const fetchPlannedTaskCompletedCount = (tasks) => {
   const completedTasks = tasks.filter((task) => task.Status === "Done");
@@ -126,6 +148,8 @@ export const ProjectDashboard = ({
 
       // Only update states if the data has actually changed
       if (JSON.stringify(flattenedTasks) !== JSON.stringify(flattenedData)) {
+        debugDownloadData(flattenedTasks, 'flattened_tasks_debug.json');
+        
         setFlattenedData(flattenedTasks);
         setPlannedTaskCompletionData(
           fetchPlannedTaskCompletedData(flattenedTasks, projectKeys)
@@ -366,6 +390,12 @@ export const ProjectDashboard = ({
 
             {/* Issue Graph Tab */}
             <Tabs.Content value="issues">
+              <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
+                <IssueAnalysisDashboard
+                  flattenedData={flattenedData}
+                  styleOptions={styleOptions}
+                />
+              </Box>
               <Box p={6} borderRadius="lg" borderWidth="1px">
                 <IssueGraph issues={flattenedData} prs={memoizedPRs} />
               </Box>
