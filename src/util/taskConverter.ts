@@ -48,6 +48,7 @@ export function convertRestApiFormat(source: any): TaskFormat {
     body: source.body || null,
     state: source.state || null,
     html_url: source.html_url || null,
+    createdAt: source.created_at || null,
     links: []
   };
 }

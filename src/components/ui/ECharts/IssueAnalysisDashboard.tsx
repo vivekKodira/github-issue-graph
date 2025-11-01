@@ -1,24 +1,25 @@
 import { useState } from "react";
 import { Box, Stack, Text } from "@chakra-ui/react";
-import { useFilterableDimensions } from "./hooks/useFilterableDimensions";
+import { useRxDBFilters } from "./hooks/useRxDBFilters";
 import { FilterPanel } from "./FilterPanel";
 import { DimensionPanel } from "./DimensionPanel";
 import { TypeLabelAnalysisChart } from "./TypeLabelAnalysisChart";
 import { DimensionTimelineChart } from "./DimensionTimelineChart";
 
 interface IssueAnalysisDashboardProps {
-  flattenedData: any[];
-  styleOptions?: any;
+  flattenedData?: unknown[];  // Keep for backwards compatibility, but not used
+  styleOptions?: Record<string, unknown>;
 }
 
 export const IssueAnalysisDashboard = ({
-  flattenedData,
   styleOptions,
 }: IssueAnalysisDashboardProps) => {
   const [showMetaFilter, setShowMetaFilter] = useState(false);
 
-  // Use the reusable hook for filters and dimensions (shared by both charts)
+  // Use the RxDB-based filtering hook
   const {
+    isReady,
+    error,
     selectedFilters,
     filterOperator,
     setFilterOperator,
@@ -34,10 +35,29 @@ export const IssueAnalysisDashboard = ({
     dimensionValues,
     handleDimensionToggle,
     filteredData,
-  } = useFilterableDimensions({
-    data: flattenedData,
+  } = useRxDBFilters({
     storageKey: 'issueAnalysisDashboardState',
   });
+
+  if (error) {
+    return (
+      <Box p={6}>
+        <Text color="red.500" fontWeight="bold">Database Error</Text>
+        <Text mt={2} color="red.400">{error.message}</Text>
+        <Text mt={4} fontSize="sm" color="gray.400">
+          Try clearing the database cache and refreshing the page.
+        </Text>
+      </Box>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <Box p={6}>
+        <Text>Initializing database...</Text>
+      </Box>
+    );
+  }
 
   return (
     <Box>

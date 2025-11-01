@@ -34,6 +34,7 @@ query ($projectId: ID!, $after: String) {
               body
               state
               url
+              createdAt
               issueType {
                 id
                 name

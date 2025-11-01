@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { ProjectKeyConfig } from '@/types/projectKeys';
 import { PROJECT_KEY_CONFIGS } from '@/config/projectKeyConfigs';
+import { useRxDB } from '@/context/RxDBContext';
 
 function RepoConfiguration({
   repoOwner: initialRepoOwner,
@@ -18,6 +19,7 @@ function RepoConfiguration({
   addConfiguration,
 }) {
   const { projectKeys, setProjectKeys } = useProjectKeys();
+  const { db } = useRxDB();
   const [repoOwner, setRepoOwner] = useState(initialRepoOwner || "");
   const [repository, setRepository] = useState(initialRepository || "");
   const [project, setProject] = useState(initialProject || "");
@@ -67,8 +69,57 @@ function RepoConfiguration({
     });
   };
 
-  const handleClearStorage = () => {
-    localStorage.clear();
+  const handleClearStorage = async () => {
+    // List of application-specific localStorage keys to clear
+    const appKeys = [
+      // Configuration keys
+      'repoOwner',
+      'repository',
+      'githubToken',
+      'openaiApiKey',
+      'project',
+      'plannedEffortForProject',
+      'plannedEndDate',
+      'projectKeys',
+      // Dashboard state keys
+      'issueAnalysisDashboardState',
+      // Demo mode
+      'demo_mode',
+      // Debug flag
+      'ENABLE_DEBUG',
+    ];
+    
+    // Clear configuration and state keys
+    appKeys.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Clear cache keys (those with pattern: cacheKey-projectID-repository)
+    // Iterate through all localStorage keys to find and remove cache entries
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        // Match cache pattern: issues-*, prs-*
+        if (key.startsWith('issues-') || key.startsWith('prs-')) {
+          keysToRemove.push(key);
+        }
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // Clear RxDB database
+    if (db) {
+      try {
+        await db.tasks.find().remove();
+        await db.prs.find().remove();
+        console.log('RxDB database cleared');
+      } catch (error) {
+        console.error('Error clearing RxDB database:', error);
+      }
+    }
+    
+    // Reset state
     setRepoOwner("");
     setRepository("");
     setProject("");
@@ -79,7 +130,7 @@ function RepoConfiguration({
     setProjectKeys(PROJECT_KEY_CONFIGS);
     
     toaster.create({
-      description: "All configuration data has been cleared",
+      description: "All cached data has been cleared",
       type: "success",
     });
   };

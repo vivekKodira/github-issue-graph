@@ -125,6 +125,14 @@ const flattenGraphQLResponse = function (response) {
         flat["state"] = response.content.state;
         flat["Status"] = response.content.state === "closed" ? "Done" : "Todo"; // Match taskConverter format
         flat["html_url"] = response.content.url;
+        flat["createdAt"] = response.content.createdAt;
+        
+        // Debug logging for first item
+        if (!flattenGraphQLResponse.hasLogged) {
+            console.log('[DEBUG] First GraphQL response.content:', response.content);
+            console.log('[DEBUG] Extracted createdAt:', response.content.createdAt);
+            flattenGraphQLResponse.hasLogged = true;
+        }
         
         // Issue type from repository
         if (response.content.issueType) {
@@ -191,7 +199,15 @@ async function mainScript({projectID="", githubToken, repository="", repoOwner})
                 !item.content.mergedAt  // PRs have mergedAt, Issues don't
             );
             console.log(`Filtered ${graphqlTasks.length - issuesOnly.length} non-issue items (PRs, drafts, etc.)`);
-            fetchedTasks = issuesOnly.map(flattenGraphQLResponse).map(convertGraphQLFormat);
+            const flattened = issuesOnly.map(flattenGraphQLResponse);
+            fetchedTasks = flattened.map(convertGraphQLFormat);
+            
+            // Debug: Log first converted task
+            if (fetchedTasks.length > 0) {
+                console.log('[DEBUG] First flattened task:', flattened[0]);
+                console.log('[DEBUG] First converted task:', fetchedTasks[0]);
+                console.log('[DEBUG] First task createdAt:', fetchedTasks[0].createdAt);
+            }
         } else {
             fetchedTasks = await issueFetcher({repository, githubToken, repoOwner});
         }

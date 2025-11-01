@@ -19,7 +19,19 @@ export const DimensionTimelineChart = ({
   const [chartOptions, setChartOptions] = useState(null);
 
   useEffect(() => {
+    console.log('[DimensionTimelineChart] Props received:', {
+      filteredDataLength: filteredData?.length,
+      selectedDimensionField,
+      selectedDimensionValues,
+      selectedDimensionValuesLength: selectedDimensionValues.length
+    });
+
     if (!filteredData || filteredData.length === 0 || selectedDimensionValues.length === 0) {
+      console.log('[DimensionTimelineChart] Early return - conditions not met:', {
+        hasFilteredData: !!filteredData,
+        filteredDataLength: filteredData?.length,
+        selectedDimensionValuesLength: selectedDimensionValues.length
+      });
       setChartOptions(null);
       return;
     }
@@ -31,7 +43,11 @@ export const DimensionTimelineChart = ({
       dimensionData[value] = [];
     });
 
-    filteredData.forEach((issue: any) => {
+    let matchedIssues = 0;
+    let issuesWithoutDate = 0;
+    let issuesWithoutDimensionValue = 0;
+
+    filteredData.forEach((issue: any, index: number) => {
       // Get the dimension value for this issue
       let issueValue: string | null = null;
       
@@ -49,16 +65,43 @@ export const DimensionTimelineChart = ({
 
       // Get creation date
       const createdAt = issue.created_at || issue.createdAt;
-      if (!createdAt || !issueValue) return;
+      
+      if (index === 0) {
+        console.log(`[DimensionTimelineChart] Sample issue ${index} - ALL FIELDS:`, issue);
+        console.log(`[DimensionTimelineChart] Sample issue ${index} - Keys:`, Object.keys(issue));
+        console.log(`[DimensionTimelineChart] Sample issue ${index} - createdAt value:`, issue.createdAt, typeof issue.createdAt);
+        console.log(`[DimensionTimelineChart] Sample issue ${index} - created_at value:`, issue.created_at, typeof issue.created_at);
+      }
+
+      if (!issueValue) {
+        issuesWithoutDimensionValue++;
+        return;
+      }
+
+      if (!createdAt) {
+        issuesWithoutDate++;
+        return;
+      }
 
       try {
         const date = new Date(createdAt);
-        if (isNaN(date.getTime())) return;
+        if (isNaN(date.getTime())) {
+          console.warn('[DimensionTimelineChart] Invalid date:', createdAt);
+          return;
+        }
         
         dimensionData[issueValue].push({ date, value: issueValue });
+        matchedIssues++;
       } catch (e) {
         console.error('Error parsing date:', createdAt, e);
       }
+    });
+
+    console.log('[DimensionTimelineChart] Processing summary:', {
+      totalIssues: filteredData.length,
+      matchedIssues,
+      issuesWithoutDate,
+      issuesWithoutDimensionValue
     });
 
     // Sort dates for each dimension
@@ -66,15 +109,29 @@ export const DimensionTimelineChart = ({
       dimensionData[value].sort((a, b) => a.date.getTime() - b.date.getTime());
     });
 
+    console.log('[DimensionTimelineChart] Dimension data collected:', {
+      dimensionField: selectedDimensionField,
+      dimensionCounts: Object.entries(dimensionData).map(([key, values]) => ({
+        dimension: key,
+        count: values.length
+      }))
+    });
+
     // Create cumulative count data for timeline
     const series = selectedDimensionValues.map(value => {
       const issues = dimensionData[value] || [];
-      const cumulativeData: Array<[string, number]> = [];
       
+      // Group issues by date (one entry per unique date)
+      const dateMap = new Map<string, number>();
       issues.forEach((item, index) => {
         const dateStr = item.date.toISOString().split('T')[0]; // YYYY-MM-DD format
-        cumulativeData.push([dateStr, index + 1]);
+        // Only keep the latest cumulative count for each date
+        dateMap.set(dateStr, index + 1);
       });
+      
+      // Convert to array and sort by date
+      const cumulativeData: Array<[string, number]> = Array.from(dateMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]));
 
       return {
         name: value,
@@ -90,7 +147,17 @@ export const DimensionTimelineChart = ({
     // Filter out empty series
     const validSeries = series.filter(s => s.data.length > 0);
 
+    console.log('[DimensionTimelineChart] Series data:', {
+      totalSeries: series.length,
+      validSeries: validSeries.length,
+      seriesDetails: series.map(s => ({
+        name: s.name,
+        dataPoints: s.data.length
+      }))
+    });
+
     if (validSeries.length === 0) {
+      console.log('[DimensionTimelineChart] No valid series data - returning null');
       setChartOptions(null);
       return;
     }
@@ -117,11 +184,15 @@ export const DimensionTimelineChart = ({
         },
         formatter: (params: any) => {
           if (!params || params.length === 0) return '';
-          const date = new Date(params[0].value[0]).toLocaleDateString();
+          const date = new Date(params[0].value[0]);
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          const formattedDate = `${day}/${month}/${year}`;
           const lines = params.map((p: any) => 
             `${p.marker} ${p.seriesName}: ${p.value[1]} issues`
           );
-          return `${date}<br/>${lines.join('<br/>')}`;
+          return `${formattedDate}<br/>${lines.join('<br/>')}`;
         }
       },
       legend: {
@@ -146,7 +217,10 @@ export const DimensionTimelineChart = ({
           color: '#ffffff',
           formatter: (value: number) => {
             const date = new Date(value);
-            return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
           }
         }
       },
@@ -195,6 +269,7 @@ export const DimensionTimelineChart = ({
       series: validSeries
     };
 
+    console.log('[DimensionTimelineChart] Chart options set successfully');
     setChartOptions(options);
   }, [filteredData, selectedDimensionField, selectedDimensionValues]);
 
