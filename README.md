@@ -168,21 +168,73 @@ Debug mode is useful for:
 ## Screenshots
 
 ### Project Overview
-*Track project completion, sprint velocity, effort prediction, and task distribution at a glance*
-![Project Overview](docs/images/project-overview.png)
+#### Track project completion
+![track_project](docs/images/track_project_completion.png)
+
+####  sprint velocity
+![Sprint Velocity](docs/images/sprint_velocity.png)
+
+#### effort prediction
 ![Prediction](docs/images/effort-prediction.png)
 
-
 ### Team Analysis
-*Monitor team performance with assignee workload and reviewer contribution charts*
-![Team Analysis](docs/images/team-analysis.png)
+
+#### Issue categorisation By person
+![Issue complexity](docs/images/issue_complexity_by_person.png)
+
+#### Issue categorisation By person Pie chart
+![Issue complexity pie chart](docs/images/issue_complexity_by_person_pie.png)
+
+
+#### Efforts by person per sprint
+![Efforts by person per sprint](docs/images/assignee_efforts_per_sprint.png)
+
+#### Review comments recieved
+![Efforts by person per sprint](docs/images/comments__received_by_month_line.png)
+
+#### Review comments given
+![Efforts by person per sprint](docs/images/comments_by_reviewer_pie.png)
+
+
 
 ### Pull Requests
-*Analyze code review patterns, PR lifecycle, and review quality metrics*
-![Pull Requests](docs/images/pull-requests.png)
 
-### Issue Graph
-*Visualize issue dependencies and relationships in an interactive network graph*
+#### Pull Request Complexity vs Time to review
+![Pull Request Complexity vs Time to review](docs/images/pr_size_time.png)
+
+#### Code churn over time
+![Code churn over time](docs/images/code_churn.png)
+
+#### Review quality
+![Review quality](docs/images/review_quality_metrics.png)
+
+#### Review comments sentence cloud
+![Review comments sentence cloud](docs/images/review_comment_sentence_cloud.png)
+
+#### Pull Request Submission Frequency
+![Pull Request Submission Frequency](docs/images/pr_submission_frequency.png)
+
+
+#### Pull Request (Days between PRs)
+![Pull Request (Days between PRs)](docs/images/prs_days_between.png)
+
+
+### Issues Analysis
+
+#### Issue search & categorisation
+![Issue search & categorisation](docs/images/issue_categorisation.png)
+
+
+#### Issue Creation timeline
+
+* Example: Bugs found by testers
+![Issue creation timeline](docs/images/issue_creation_timeline.png)
+
+* Example: Change requests
+![Issue creation timeline](docs/images/change_request_creation.png)
+
+
+#### Visualize issue dependencies and relationships in an interactive network graph
 ![Issue Graph](docs/images/issue-graph.png)
 ![Issue Graph](docs/images/issue-graph_1.png)
 

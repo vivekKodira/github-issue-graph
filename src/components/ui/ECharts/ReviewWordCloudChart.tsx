@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import 'echarts-wordcloud';
 import {
     Box,
-    Input,
     HStack,
     VStack,
     Table,
@@ -16,7 +15,6 @@ import {
 } from "@chakra-ui/react";
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { toaster } from "@/components/ui/toaster";
-import stopWords from './stop_words';
 import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ReviewComment {
@@ -32,8 +30,8 @@ interface StyleOptions {
     height: string;
 }
 
-interface WordFrequency {
-    word: string;
+interface SentenceFrequency {
+    sentence: string;
     count: number;
     isFiltered: boolean;
 }
@@ -44,26 +42,55 @@ interface ReviewWordCloudChartProps {
     openaiApiKey?: string;
 }
 
-async function processWordsWithAI(words: string[], openaiApiKey: string): Promise<{ normalizedWords: string[]; filteredWords: string[] }> {
-    // First use stop_words for initial filtering
-    const stopWordsSet = new Set(stopWords.split(','));
-    const filteredWords = words.filter(word => !stopWordsSet.has(word.toLowerCase()));
+// Function to extract sentences from text
+function extractSentences(text: string): string[] {
+    if (!text) return [];
     
+    // Split by sentence endings (., !, ?) followed by space or newline
+    // Also split by newlines to handle bullet points
+    const sentences = text
+        .split(/[.!?]\s+|\n+/)
+        .map(s => s.trim())
+        .filter(s => {
+            // Remove markdown formatting
+            const cleaned = s.replace(/[*_`#\-]/g, '').trim();
+            // Filter out very short sentences (less than 10 chars) and empty ones
+            return cleaned.length >= 10;
+        })
+        .map(s => {
+            // Clean up the sentence: remove markdown, extra spaces, normalize
+            return s
+                .replace(/[*_`#]/g, '')
+                .replace(/^\s*[-•]\s*/, '') // Remove bullet points
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+        });
+    
+    return sentences;
+}
+
+async function processSentencesWithAI(sentences: string[], openaiApiKey: string): Promise<{ normalizedSentences: string[]; filteredSentences: string[] }> {
     if (!openaiApiKey) {
-        return { normalizedWords: filteredWords, filteredWords: Array.from(stopWordsSet) as string[] };
+        return { normalizedSentences: sentences, filteredSentences: [] };
     }
 
     try {
-        // Create initial word cloud data
-        const wordCount = filteredWords.reduce((acc, word) => {
-            acc[word] = (acc[word] || 0) + 1;
+        // Count sentence frequencies
+        const sentenceCount = sentences.reduce((acc, sentence) => {
+            acc[sentence] = (acc[sentence] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
 
-        const wordCloudData = Object.entries(wordCount)
-            .map(([word, count]) => ({ word, count }))
+        const sentenceData = Object.entries(sentenceCount)
+            .map(([sentence, count]) => ({ sentence, count }))
+            .filter(item => item.count >= 2) // Only process sentences that appear at least twice
             .sort((a, b) => b.count - a.count)
-            .slice(0, 50); // Take top 50 words for AI processing
+            .slice(0, 30); // Take top 30 repeating sentences for AI processing
+
+        if (sentenceData.length === 0) {
+            return { normalizedSentences: sentences, filteredSentences: [] };
+        }
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -76,15 +103,15 @@ async function processWordsWithAI(words: string[], openaiApiKey: string): Promis
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a technical word processor analyzing code review comments. Given a list of words and their frequencies, your task is to: 1. Group similar technical terms (e.g., "debug", "debugging" -> "debug") 2. Normalize verb tenses to present tense (e.g., "fixed", "fixing" -> "fix") 3. Normalize plurals to singular form (e.g., "bugs", "bug" -> "bug") 4. Remove any remaining non-technical terms 5. Return the processed words in the same format. Each word should appear only once. Format: "word1:count1,word2:count2,..."'
+                        content: 'You are analyzing code review comments. Group similar review comments together and provide a normalized representative sentence for each group. Your task: 1. Identify sentences describing the same feedback or review point 2. Group them together 3. Create a single normalized sentence for each group 4. Return the result as JSON array: [{"normalized": "...", "count": N}]'
                     },
                     {
                         role: 'user',
-                        content: JSON.stringify(wordCloudData)
+                        content: JSON.stringify(sentenceData)
                     }
                 ],
                 temperature: 0.3,
-                max_tokens: 1000,
+                max_tokens: 2000,
             }),
         });
 
@@ -97,39 +124,31 @@ async function processWordsWithAI(words: string[], openaiApiKey: string): Promis
             throw new Error('Invalid response format from OpenAI API');
         }
 
-        // Parse the AI response
         try {
-            const processedWords = data.choices[0].message.content
-                .split(',')
-                .map(item => {
-                    const [word, count] = item.split(':');
-                    return { word: word.trim(), count: parseInt(count, 10) };
-                })
-                .filter(item => !isNaN(item.count));
-
-            // Convert back to word list format
-            const normalizedWords = processedWords.flatMap(item => 
-                Array(item.count).fill(item.word)
+            const processedData = JSON.parse(data.choices[0].message.content);
+            
+            // Convert back to sentence list format
+            const normalizedSentences = processedData.flatMap((item: any) => 
+                Array(item.count).fill(item.normalized)
             );
 
             return { 
-                normalizedWords, 
-                filteredWords: Array.from(stopWordsSet) as string[] 
+                normalizedSentences, 
+                filteredSentences: []
             };
         } catch (parseError) {
             console.error('Error parsing OpenAI response:', parseError);
-            return { normalizedWords: filteredWords, filteredWords: Array.from(stopWordsSet) as string[] };
+            return { normalizedSentences: sentences, filteredSentences: [] };
         }
     } catch (error) {
-        console.error('Error processing words with AI:', error);
-        return { normalizedWords: filteredWords, filteredWords: Array.from(stopWordsSet) as string[] };
+        console.error('Error processing sentences with AI:', error);
+        return { normalizedSentences: sentences, filteredSentences: [] };
     }
 }
 
 export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: ReviewWordCloudChartProps) => {
     const [chartOptions, setChartOptions] = useState(null);
-    const [newStopWord, setNewStopWord] = useState('');
-    const [wordFrequencies, setWordFrequencies] = useState<WordFrequency[]>([]);
+    const [sentenceFrequencies, setSentenceFrequencies] = useState<SentenceFrequency[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [processedPrs, setProcessedPrs] = useState<string>('');
@@ -137,7 +156,7 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
     const processingRef = useRef(false);
     const pageSize = 10;
 
-    const processWordCloud = useCallback(async () => {
+    const processSentenceCloud = useCallback(async () => {
         if (!prs?.length) return;
 
         // Prevent concurrent processing
@@ -158,62 +177,64 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
             return;
         }
         
-        console.log('Starting processing with PRs:', prs.length);
+        console.log('Starting review sentence processing with PRs:', prs.length);
         processingRef.current = true;
         setIsLoading(true);
         
         try {
-            // Extract all words from review comments
-            const allWords = prs
+            // Extract all sentences from review comments
+            const allSentences = prs
                 .flatMap(pr => pr.reviewComments)
-                .flatMap(comment => {
-                    return comment.body
-                        .toLowerCase()
-                        .replace(/[^\w\s]/g, '')
-                        .split(/\s+/)
-                        .filter(word => word.length > 2 && !/^\d+$/.test(word));
-                });
+                .flatMap(comment => extractSentences(comment.body));
 
-            console.log('Processing words with AI');
-            // Process words with AI if API key is provided
-            const { normalizedWords, filteredWords } = await processWordsWithAI(allWords, openaiApiKey);
+            console.log('Total sentences extracted:', allSentences.length);
 
-            // Count word frequencies
-            const wordCount = normalizedWords.reduce((acc, word) => {
-                acc[word] = (acc[word] || 0) + 1;
+            // Process sentences with AI if API key is provided
+            const { normalizedSentences, filteredSentences } = await processSentencesWithAI(allSentences, openaiApiKey || '');
+
+            // Count sentence frequencies
+            const sentenceCount = normalizedSentences.reduce((acc, sentence) => {
+                acc[sentence] = (acc[sentence] || 0) + 1;
                 return acc;
             }, {} as Record<string, number>);
 
-            // Create word frequency array
-            const frequencies = Object.entries(wordCount)
-                .map(([word, count]) => ({
-                    word,
+            // Create sentence frequency array - only include sentences that appear more than once
+            const frequencies = Object.entries(sentenceCount)
+                .filter(([_, count]) => count >= 2) // Only show repeating sentences
+                .map(([sentence, count]) => ({
+                    sentence,
                     count,
-                    isFiltered: filteredWords.includes(word)
+                    isFiltered: filteredSentences.includes(sentence)
                 }))
                 .sort((a, b) => b.count - a.count);
 
-            setWordFrequencies(frequencies);
+            setSentenceFrequencies(frequencies);
             setProcessedPrs(prsId);
             setLastOpenaiApiKey(openaiApiKey || '');
 
-            // Create word cloud data from non-filtered words
+            // Create word cloud data from non-filtered sentences
             const wordCloudData = frequencies
                 .filter(item => !item.isFiltered)
-                .map(item => ({ name: item.word, value: item.count }))
-                .slice(0, 100);
+                .map(item => {
+                    // Truncate long sentences for display
+                    const displayText = item.sentence.length > 50 
+                        ? item.sentence.substring(0, 47) + '...'
+                        : item.sentence;
+                    return { name: displayText, value: item.count, fullText: item.sentence };
+                })
+                .slice(0, 50);
 
             const options = {
                 title: {
-                    text: 'Review Comments Word Cloud',
+                    text: 'Review Comments Sentence Patterns',
                     textStyle: {
                         color: '#ffffff'
                     }
                 },
                 tooltip: {
                     show: true,
-                    formatter: function (params) {
-                        return `${params.name}: ${params.value}`;
+                    formatter: function (params: any) {
+                        return `${params.data.fullText || params.name}\nCount: ${params.value}`;
                     }
                 },
                 series: [{
@@ -225,19 +246,19 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
                     height: '80%',
                     right: null,
                     bottom: null,
-                    sizeRange: [12, 60],
-                    rotationRange: [-90, 90],
+                    sizeRange: [14, 50],
+                    rotationRange: [0, 0], // Keep text horizontal for readability
                     rotationStep: 45,
-                    gridSize: 8,
+                    gridSize: 12,
                     drawOutOfBound: false,
                     textStyle: {
                         fontFamily: 'sans-serif',
                         fontWeight: 'bold',
                         color: function () {
                             return 'rgb(' + [
-                                Math.round(Math.random() * 160),
-                                Math.round(Math.random() * 160),
-                                Math.round(Math.random() * 160)
+                                Math.round(Math.random() * 160 + 50),
+                                Math.round(Math.random() * 160 + 50),
+                                Math.round(Math.random() * 160 + 50)
                             ].join(',') + ')';
                         }
                     },
@@ -254,10 +275,10 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
 
             setChartOptions(options);
         } catch (error) {
-            console.error('Error in processWordCloud:', error);
+            console.error('Error in processSentenceCloud:', error);
             toaster.create({
-                title: "Error processing words",
-                description: "Failed to process words with AI. Please try again later.",
+                title: "Error processing sentences",
+                description: "Failed to process review sentences. Please try again later.",
                 duration: 5000,
             });
         } finally {
@@ -287,16 +308,16 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
 
         // Only process on mount or when state actually changes
         if (!mountedRef.current || currentStateId !== lastProcessedRef.current) {
-            console.log('Processing word cloud - state changed or initial mount');
-            processWordCloud();
+            console.log('Processing review sentence cloud - state changed or initial mount');
+            processSentenceCloud();
             lastProcessedRef.current = currentStateId;
         }
 
         mountedRef.current = true;
-    }, [prs, openaiApiKey]); // Remove processWordCloud from dependencies
+    }, [prs, openaiApiKey]);
 
-    const visibleWords = wordFrequencies.filter(item => !item.isFiltered);
-    const paginatedData = visibleWords.slice(
+    const visibleSentences = sentenceFrequencies.filter(item => !item.isFiltered);
+    const paginatedData = visibleSentences.slice(
         (currentPage - 1) * pageSize,
         currentPage * pageSize
     );
@@ -312,77 +333,95 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
                     <Center h="500px">
                         <VStack>
                             <Spinner size="xl" />
-                            <Text mt={4}>Processing words with AI...</Text>
+                            <Text mt={4}>Processing review sentences{openaiApiKey ? ' with AI' : ''}...</Text>
                         </VStack>
                     </Center>
                 ) : chartOptions ? (
-                    <ErrorBoundary chartName="Review Word Cloud">
+                    <ErrorBoundary chartName="Review Sentence Cloud">
                         <ECharts option={chartOptions} style={styleOptions} />
                     </ErrorBoundary>
-                ) : null}
+                ) : (
+                    <Center h="500px">
+                        <Text color="gray.500">
+                            No repeating review sentences found.
+                        </Text>
+                    </Center>
+                )}
             </Box>
 
             {!isLoading && chartOptions && (
-                <Box borderWidth="1px" borderRadius="lg" w="20%">
-                    <HStack mb={4}>
-                        <Input
-                            placeholder="Add word to filter"
-                            value={newStopWord}
-                            onChange={(e) => setNewStopWord(e.target.value)}
-                        />
-                    </HStack>
+                <Box borderWidth="1px" borderRadius="lg" w="20%" p={4}>
+                    <VStack align="stretch" gap={4}>
+                        <Text fontWeight="bold" fontSize="lg">
+                            Top Review Patterns
+                        </Text>
+                        
+                        <Text fontSize="sm" color="gray.600">
+                            Showing sentences that appear 2+ times
+                        </Text>
 
-                    <Table.Root w="full">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.Cell fontWeight="bold">Word</Table.Cell>
-                                <Table.Cell fontWeight="bold" textAlign="right">Frequency</Table.Cell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {paginatedData.map(({ word, count }) => (
-                                <Table.Row 
-                                    key={word}
-                                    _hover={{ bg: "gray.50" }}
-                                >
-                                    <Table.Cell>{word}</Table.Cell>
-                                    <Table.Cell textAlign="right">{count}</Table.Cell>
+                        <Table.Root size="sm" w="full">
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.Cell fontWeight="bold">Sentence</Table.Cell>
+                                    <Table.Cell fontWeight="bold" textAlign="right">Count</Table.Cell>
                                 </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
-
-                    <Pagination.Root 
-                        count={Math.ceil(visibleWords.length / pageSize)} 
-                        pageSize={pageSize} 
-                        page={currentPage}
-                        onPageChange={handlePageChange}
-                    >
-                        <ButtonGroup variant="ghost" size="sm" wrap="wrap">
-                            <Pagination.PrevTrigger asChild>
-                                <IconButton>
-                                    <LuChevronLeft />
-                                </IconButton>
-                            </Pagination.PrevTrigger>
-
-                            <Pagination.Items
-                                render={({ value }) => (
-                                    <IconButton 
-                                        variant="ghost"
-                                        onClick={() => handlePageChange({ page: value })}
+                            </Table.Header>
+                            <Table.Body>
+                                {paginatedData.map(({ sentence, count }, index) => (
+                                    <Table.Row 
+                                        key={index}
+                                        _hover={{ bg: "gray.50" }}
                                     >
-                                        {value}
-                                    </IconButton>
-                                )}
-                            />
+                                        <Table.Cell 
+                                            fontSize="xs"
+                                            maxW="200px"
+                                            overflow="hidden"
+                                            textOverflow="ellipsis"
+                                            title={sentence}
+                                        >
+                                            {sentence.length > 60 ? sentence.substring(0, 57) + '...' : sentence}
+                                        </Table.Cell>
+                                        <Table.Cell textAlign="right">{count}</Table.Cell>
+                                    </Table.Row>
+                                ))}
+                            </Table.Body>
+                        </Table.Root>
 
-                            <Pagination.NextTrigger asChild>
-                                <IconButton>
-                                    <LuChevronRight />
-                                </IconButton>
-                            </Pagination.NextTrigger>
-                        </ButtonGroup>
-                    </Pagination.Root>
+                        {visibleSentences.length > pageSize && (
+                            <Pagination.Root 
+                                count={Math.ceil(visibleSentences.length / pageSize)} 
+                                pageSize={pageSize} 
+                                page={currentPage}
+                                onPageChange={handlePageChange}
+                            >
+                                <ButtonGroup variant="ghost" size="sm" wrap="wrap">
+                                    <Pagination.PrevTrigger asChild>
+                                        <IconButton>
+                                            <LuChevronLeft />
+                                        </IconButton>
+                                    </Pagination.PrevTrigger>
+
+                                    <Pagination.Items
+                                        render={({ value }) => (
+                                            <IconButton 
+                                                variant="ghost"
+                                                onClick={() => handlePageChange({ page: value })}
+                                            >
+                                                {value}
+                                            </IconButton>
+                                        )}
+                                    />
+
+                                    <Pagination.NextTrigger asChild>
+                                        <IconButton>
+                                            <LuChevronRight />
+                                        </IconButton>
+                                    </Pagination.NextTrigger>
+                                </ButtonGroup>
+                            </Pagination.Root>
+                        )}
+                    </VStack>
                 </Box>
             )}
         </HStack>
