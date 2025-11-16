@@ -24,7 +24,7 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 
 // Task schema based on the TaskFormat interface
 const taskSchema = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -97,7 +97,17 @@ const taskSchema = {
     }
   },
   required: ['id', 'title', 'state', 'Status', 'Type', 'updatedAt'],
-  indexes: ['Status', 'Type', 'state', 'updatedAt']
+  indexes: [
+    'Status', 
+    'Type', 
+    'state', 
+    'updatedAt',
+    // Note: createdAt is nullable, so cannot be indexed directly in RxDB
+    // Compound indexes for common query combinations
+    ['Status', 'Type'],
+    ['Status', 'updatedAt'],
+    ['Type', 'updatedAt']
+  ]
 };
 
 // PR schema
@@ -219,26 +229,39 @@ export async function getDatabase(): Promise<GitHubIssueGraphDatabase> {
     console.log('RxDB database created');
 
     // Create collections
-    await db.addCollections({
-      tasks: {
-        schema: taskSchema,
-        migrationStrategies: {
-          // Migration from version 0 to 1: add createdAt field
-          1: function(oldDoc: any) {
-            return {
-              ...oldDoc,
-              createdAt: null // Default to null for existing documents
-            };
+    try {
+      console.log('Adding collections...');
+      await db.addCollections({
+        tasks: {
+          schema: taskSchema,
+          migrationStrategies: {
+            // Migration from version 0 to 1: add createdAt field
+            1: function(oldDoc: any) {
+              return {
+                ...oldDoc,
+                createdAt: null // Default to null for existing documents
+              };
+            },
+            // Migration from version 1 to 2: add indexes (no data changes needed)
+            2: function(oldDoc: any) {
+              return oldDoc; // No changes to document structure, only indexes
+            }
           }
+        },
+        prs: {
+          schema: prSchema
         }
-      },
-      prs: {
-        schema: prSchema
-      }
-    });
+      });
 
-    console.log('RxDB collections created');
-    return db;
+      console.log('RxDB collections created');
+      return db;
+    } catch (error) {
+      console.error('Error creating collections:', error);
+      throw error;
+    }
+  }).catch(error => {
+    console.error('Error creating RxDB database:', error);
+    throw error;
   });
 
   return dbPromise;
@@ -249,9 +272,44 @@ export async function getDatabase(): Promise<GitHubIssueGraphDatabase> {
  */
 export async function clearDatabase() {
   const db = await getDatabase();
-  await db.tasks.remove();
-  await db.prs.remove();
+  await db.tasks.find().remove();
+  await db.prs.find().remove();
   console.log('Database cleared');
+}
+
+/**
+ * Completely destroy the database and clear IndexedDB
+ */
+export async function destroyDatabase() {
+  try {
+    // Reset the promise so next call will create a new database
+    if (dbPromise) {
+      const db = await dbPromise;
+      await db.destroy();
+      dbPromise = null;
+      console.log('Database destroyed');
+    }
+    
+    // Also clear IndexedDB to ensure clean state
+    await new Promise<void>((resolve, reject) => {
+      const deleteRequest = indexedDB.deleteDatabase('github_issue_graph_db');
+      deleteRequest.onsuccess = () => {
+        console.log('IndexedDB deleted successfully');
+        resolve();
+      };
+      deleteRequest.onerror = () => {
+        console.error('Error deleting IndexedDB');
+        reject(deleteRequest.error);
+      };
+      deleteRequest.onblocked = () => {
+        console.warn('IndexedDB deletion blocked - close all tabs using this database');
+        reject(new Error('Database deletion blocked'));
+      };
+    });
+  } catch (error) {
+    console.error('Error destroying database:', error);
+    throw error;
+  }
 }
 
 /**

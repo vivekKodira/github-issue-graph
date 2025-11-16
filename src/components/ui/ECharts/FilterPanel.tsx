@@ -7,10 +7,12 @@ interface FilterPanelProps {
   filterOperator: "AND" | "OR";
   visibleFilters: Record<string, boolean>;
   showMetaFilter: boolean;
+  filterMode?: 'simple' | 'advanced' | 'expert';
   onFilterToggle: (fieldName: string, value: string) => void;
   onOperatorChange: (operator: "AND" | "OR") => void;
   onToggleMetaFilter: () => void;
   onToggleFilterVisibility: (filterName: string) => void;
+  onFilterModeChange?: (mode: 'simple' | 'advanced' | 'expert') => void;
 }
 
 export const FilterPanel = ({
@@ -20,10 +22,12 @@ export const FilterPanel = ({
   filterOperator,
   visibleFilters,
   showMetaFilter,
+  filterMode = 'simple',
   onFilterToggle,
   onOperatorChange,
   onToggleMetaFilter,
   onToggleFilterVisibility,
+  onFilterModeChange,
 }: FilterPanelProps) => {
   return (
     <Box>
@@ -32,6 +36,29 @@ export const FilterPanel = ({
           Filters
         </Text>
         <HStack gap={3}>
+          {/* Filter Mode Selector */}
+          {onFilterModeChange && (
+            <Box>
+              <Text fontSize="xs" mb={1}>Filter Mode</Text>
+              <select
+                value={filterMode}
+                onChange={(e) => onFilterModeChange(e.target.value as 'simple' | 'advanced' | 'expert')}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid #E2E8F0',
+                  fontSize: '12px',
+                  backgroundColor: 'transparent',
+                  color: 'inherit',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="simple">Simple</option>
+                <option value="advanced">Advanced</option>
+                <option value="expert">Expert</option>
+              </select>
+            </Box>
+          )}
           <button
             onClick={onToggleMetaFilter}
             style={{

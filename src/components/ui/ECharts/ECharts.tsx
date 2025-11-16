@@ -46,7 +46,7 @@ export const ECharts = forwardRef<
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(container, null, {
         width: parentWidth,
-        height: style.height || 500
+        height: style?.height || 500
       });
     }
 

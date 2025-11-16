@@ -10,7 +10,7 @@ import {
 import fetchProjectDetails from "@/util/projectFetcher";
 import fetchPRs from "@/util/prFetcher";
 import { useRxDB } from "@/context/RxDBContext";
-import { bulkInsertTasks, bulkInsertPRs, taskFromRxDBFormat, prFromRxDBFormat } from "@/db/rxdb";
+import { bulkInsertTasks, bulkInsertPRs, taskFromRxDBFormat, prFromRxDBFormat, destroyDatabase } from "@/db/rxdb";
 import { StatusChart } from "@/components/ui/ECharts/StatusChart";
 import { SprintChart } from "@/components/ui/ECharts/SprintChart";
 import { CompletionChart } from "@/components/ui/ECharts/CompletionChart";
@@ -34,7 +34,8 @@ import { ReviewerLineCharts } from "../ECharts/ReviewerLineCharts";
 import { AuthorLineCharts } from "../ECharts/AuthorLineCharts";
 import { Insights } from "../ECharts/Insights";
 import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
-import { IssueAnalysisDashboard } from "../ECharts/IssueAnalysisDashboard";
+import { IssueAnalysisDashboardV2 } from "../ECharts/IssueAnalysisDashboardV2";
+import { RCAWordCloudChart } from "../ECharts/RCAWordCloudChart";
 
 // Debug flag - controlled by localStorage
 // To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
@@ -257,6 +258,18 @@ export const ProjectDashboard = ({
     setActiveTab(details.value);
   }, []);
 
+  const handleClearDatabase = async () => {
+    if (confirm('This will destroy the database and reload the page. Continue?')) {
+      try {
+        await destroyDatabase();
+        window.location.reload();
+      } catch (error) {
+        console.error('Error clearing database:', error);
+        alert('Error clearing database. Please close all tabs using this app and try again.');
+      }
+    }
+  };
+
   // Memoize the PRs data to prevent unnecessary re-renders
   const memoizedPRs = useMemo(() => {
     console.log('Memoizing PRs data');
@@ -273,15 +286,24 @@ export const ProjectDashboard = ({
             Initializing database...
           </Box>
         )}
-        <Button
-          disabled={isButtonDisabled}
-          id="render-graph"
-          loading={loading}
-          colorScheme="blue"
-          onClick={handleClick}
-        >
-          Render
-        </Button>
+        <Box display="flex" gap={3}>
+          <Button
+            disabled={isButtonDisabled}
+            id="render-graph"
+            loading={loading}
+            colorScheme="blue"
+            onClick={handleClick}
+          >
+            Render
+          </Button>
+          <Button
+            colorScheme="red"
+            variant="outline"
+            onClick={handleClearDatabase}
+          >
+            Clear Database
+          </Button>
+        </Box>
       </Box>
 
       {flattenedData && (
@@ -451,9 +473,17 @@ export const ProjectDashboard = ({
             {/* Issue Graph Tab */}
             <Tabs.Content value="issues">
               <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
-                <IssueAnalysisDashboard
+                {/* Using V2 Dashboard with Advanced Mango Query Support */}
+                <IssueAnalysisDashboardV2
                   flattenedData={flattenedData}
                   styleOptions={styleOptions}
+                />
+              </Box>
+              <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
+                <RCAWordCloudChart 
+                  issues={flattenedData} 
+                  styleOptions={styleOptions}
+                  openaiApiKey={openaiApiKey}
                 />
               </Box>
               <Box p={6} borderRadius="lg" borderWidth="1px">
