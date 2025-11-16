@@ -171,7 +171,7 @@ Debug mode is useful for:
 #### Track project completion
 ![track_project](docs/images/track_project_completion.png)
 
-####  sprint velocity
+####  Sprint velocity
 ![Sprint Velocity](docs/images/sprint_velocity.png)
 
 #### effort prediction
@@ -194,7 +194,6 @@ Debug mode is useful for:
 
 #### Review comments given
 ![Efforts by person per sprint](docs/images/comments_by_reviewer_pie.png)
-
 
 
 ### Pull Requests
@@ -233,6 +232,8 @@ Debug mode is useful for:
 * Example: Change requests
 ![Issue creation timeline](docs/images/change_request_creation.png)
 
+#### RCA sentence cloud
+![RCA sentence cloud](docs/images/rca_sentence_cloud.png)
 
 #### Visualize issue dependencies and relationships in an interactive network graph
 ![Issue Graph](docs/images/issue-graph.png)
