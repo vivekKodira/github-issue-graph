@@ -37,6 +37,7 @@ export function convertRestApiFormat(source: any): TaskFormat {
     repo_owner: source.repository_url?.split("/")[4] || null,
     labels: source.labels?.map((label) => label.name) || [],
     assignees: source.assignees?.map((assignee) => assignee.login) || [],
+    milestone: source.milestone?.title || null,
     Title: source.title || null,
     Status: source.state === "closed" ? "Done" : "Todo",
     [PROJECT_KEYS.SPRINT]: null,

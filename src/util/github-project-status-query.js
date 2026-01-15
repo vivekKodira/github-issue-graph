@@ -53,6 +53,10 @@ query ($projectId: ID!, $after: String) {
                   color
                 }
               }
+              milestone {
+                title
+                number
+              }
               subIssues: timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
                 nodes {
                   ... on CrossReferencedEvent {

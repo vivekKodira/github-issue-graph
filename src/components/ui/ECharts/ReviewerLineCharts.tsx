@@ -110,7 +110,7 @@ const createEmptyChartOptions = (): EChartsOption => ({
   }] as LineSeriesOption[]
 });
 
-export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
+const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const [chartOptions, setChartOptions] = useState<EChartsOption>(createEmptyChartOptions());
   const [selectedReviewers, setSelectedReviewers] = useState<string[]>([]);
   const [availableReviewers, setAvailableReviewers] = useState<string[]>([]);
@@ -229,10 +229,16 @@ export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, on
         placeholder="Select a reviewer"
       />
       <Box w="100%" h="350px">
-        <ErrorBoundary chartName="Reviewer Line">
-          <ECharts option={chartOptions} style={styleOptions} />
-        </ErrorBoundary>
+        <ECharts option={chartOptions} style={styleOptions} />
       </Box>
     </Box>
+  );
+};
+
+export const ReviewerLineCharts = (props) => {
+  return (
+    <ErrorBoundary chartName="Reviewer Line">
+      <ReviewerLineChartsContent {...props} />
+    </ErrorBoundary>
   );
 }; 

@@ -5,7 +5,7 @@ import { ChartDropdown } from "./ChartDropdown";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 // Accepts: prs (array of PRs), styleOptions (for ECharts)
-export const AuthorPRIntervalChart = ({ prs, styleOptions }) => {
+const AuthorPRIntervalChartContent = ({ prs, styleOptions }) => {
   const [chartOptions, setChartOptions] = useState(null);
   const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [allAuthors, setAllAuthors] = useState([]);
@@ -183,9 +183,7 @@ export const AuthorPRIntervalChart = ({ prs, styleOptions }) => {
         />
         <Box w="100%" h="350px">
           {chartOptions && (
-            <ErrorBoundary chartName="Author PR Interval">
-              <ECharts ref={chartRef} option={chartOptions} style={styleOptions} />
-            </ErrorBoundary>
+            <ECharts ref={chartRef} option={chartOptions} style={styleOptions} />
           )}
         </Box>
       </Box>
@@ -209,5 +207,13 @@ export const AuthorPRIntervalChart = ({ prs, styleOptions }) => {
         </Table.Root>
       </Box>
     </HStack>
+  );
+};
+
+export const AuthorPRIntervalChart = (props) => {
+  return (
+    <ErrorBoundary chartName="Author PR Interval">
+      <AuthorPRIntervalChartContent {...props} />
+    </ErrorBoundary>
   );
 }; 

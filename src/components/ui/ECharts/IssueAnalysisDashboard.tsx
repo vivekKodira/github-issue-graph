@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Box, Stack, Text } from "@chakra-ui/react";
 import { useRxDBFilters } from "./hooks/useRxDBFilters";
 import { FilterPanel } from "./FilterPanel";
 import { DimensionPanel } from "./DimensionPanel";
 import { TypeLabelAnalysisChart } from "./TypeLabelAnalysisChart";
 import { DimensionTimelineChart } from "./DimensionTimelineChart";
+import { TimeEstimationWidget } from "./TimeEstimationWidget";
+import { TimelinePlanningChart } from "./TimelinePlanningChart";
 
 interface IssueAnalysisDashboardProps {
   flattenedData?: unknown[];  // Keep for backwards compatibility, but not used
@@ -38,6 +40,15 @@ export const IssueAnalysisDashboard = ({
   } = useRxDBFilters({
     storageKey: 'issueAnalysisDashboardState',
   });
+
+  // Create a stable key for charts based on filter state to force re-render when filters change
+  const chartKey = useMemo(() => {
+    const activeFilters = Object.entries(selectedFilters)
+      .filter(([, values]) => values.length > 0)
+      .map(([field, values]) => `${field}:${values.join(',')}`)
+      .join('|');
+    return `${activeFilters}-${filterOperator}-${selectedDimensionField}-${selectedDimensionValues.join(',')}`;
+  }, [selectedFilters, filterOperator, selectedDimensionField, selectedDimensionValues]);
 
   if (error) {
     return (
@@ -95,6 +106,7 @@ export const IssueAnalysisDashboard = ({
 
         {/* Bar Chart - Distribution */}
         <TypeLabelAnalysisChart
+          key={`chart-${chartKey}`}
           filteredData={filteredData}
           selectedDimensionField={selectedDimensionField}
           selectedDimensionValues={selectedDimensionValues}
@@ -105,9 +117,24 @@ export const IssueAnalysisDashboard = ({
 
         {/* Timeline Chart - Cumulative over time */}
         <DimensionTimelineChart
+          key={`timeline-${chartKey}`}
           filteredData={filteredData}
           selectedDimensionField={selectedDimensionField}
           selectedDimensionValues={selectedDimensionValues}
+          styleOptions={styleOptions}
+        />
+
+        {/* Time Estimation Widget */}
+        <TimeEstimationWidget
+          filteredData={filteredData}
+          filterableFields={filterableFields}
+          styleOptions={styleOptions}
+        />
+
+        {/* Timeline Planning Chart */}
+        <TimelinePlanningChart
+          filteredData={filteredData}
+          filterableFields={filterableFields}
           styleOptions={styleOptions}
         />
       </Stack>

@@ -7,6 +7,8 @@ import { AdvancedFiltersPanel } from "./AdvancedFiltersPanel";
 import { ExpertQueryPanel } from "./ExpertQueryPanel";
 import { TypeLabelAnalysisChart } from "./TypeLabelAnalysisChart";
 import { DimensionTimelineChart } from "./DimensionTimelineChart";
+import { TimeEstimationWidget } from "./TimeEstimationWidget";
+import { TimelinePlanningChart } from "./TimelinePlanningChart";
 
 interface IssueAnalysisDashboardV2Props {
   flattenedData?: unknown[];  // Keep for backwards compatibility, but not used
@@ -150,6 +152,20 @@ export const IssueAnalysisDashboardV2 = ({
           filteredData={filteredData}
           selectedDimensionField={selectedDimensionField}
           selectedDimensionValues={selectedDimensionValues}
+          styleOptions={styleOptions}
+        />
+
+        {/* Time Estimation Widget */}
+        <TimeEstimationWidget
+          filteredData={filteredData}
+          filterableFields={filterableFields}
+          styleOptions={styleOptions}
+        />
+
+        {/* Timeline Planning Chart */}
+        <TimelinePlanningChart
+          filteredData={filteredData}
+          filterableFields={filterableFields}
           styleOptions={styleOptions}
         />
       </Stack>

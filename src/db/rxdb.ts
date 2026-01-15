@@ -282,15 +282,18 @@ export async function clearDatabase() {
  */
 export async function destroyDatabase() {
   try {
-    // Reset the promise so next call will create a new database
+    // Clear all collections first
     if (dbPromise) {
       const db = await dbPromise;
-      await db.destroy();
-      dbPromise = null;
-      console.log('Database destroyed');
+      await db.tasks.find().remove();
+      await db.prs.find().remove();
+      console.log('Database collections cleared');
     }
     
-    // Also clear IndexedDB to ensure clean state
+    // Reset the promise so next call will create a new database
+    dbPromise = null;
+    
+    // Delete IndexedDB to ensure clean state
     await new Promise<void>((resolve, reject) => {
       const deleteRequest = indexedDB.deleteDatabase('github_issue_graph_db');
       deleteRequest.onsuccess = () => {
@@ -306,6 +309,8 @@ export async function destroyDatabase() {
         reject(new Error('Database deletion blocked'));
       };
     });
+    
+    console.log('Database destroyed');
   } catch (error) {
     console.error('Error destroying database:', error);
     throw error;

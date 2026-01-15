@@ -148,7 +148,11 @@ export const useRxDBFilters = ({
               const matches = item.labels?.some((l: any) => selectedValues.includes(l.name));
               fieldMatches.push(matches || false);
             } else {
-              const itemValue = String(item[fieldName] || '');
+              // Handle fields that might be in customFields (like milestone)
+              // taskFromRxDBFormat merges customFields back, so field should be accessible directly
+              const itemValue = item[fieldName] !== undefined && item[fieldName] !== null
+                ? String(item[fieldName])
+                : '';
               const matches = selectedValues.includes(itemValue);
               fieldMatches.push(matches);
             }
@@ -162,7 +166,8 @@ export const useRxDBFilters = ({
         });
       }
 
-      setFilteredData(result);
+      // Always create a new array reference to ensure React detects the change
+      setFilteredData([...result]);
     };
 
     applyFilters();

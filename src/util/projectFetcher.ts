@@ -120,6 +120,9 @@ const flattenGraphQLResponse = function (response) {
         flat["labels"] = response.content.labels?.nodes || [];
         flat["assignees"] = response.content?.assignees?.nodes.map(a => a.login) || [];
         
+        // Extract milestone title
+        flat["milestone"] = response.content.milestone?.title || null;
+        
         // New fields from enhanced query
         flat["body"] = response.content.body;
         flat["state"] = response.content.state;

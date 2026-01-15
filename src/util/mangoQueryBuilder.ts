@@ -27,6 +27,16 @@ export interface MangoQuery {
 }
 
 /**
+ * Top-level schema fields that can be queried directly
+ * Fields not in this list are stored in customFields and must be queried via customFields.fieldName
+ */
+const TOP_LEVEL_SCHEMA_FIELDS = new Set([
+  'id', 'title', 'issue_number', 'repository', 'repo_owner', 'body', 
+  'state', 'Status', 'html_url', 'Type', 'labels', 'assignees', 'links', 
+  'customFields', 'createdAt', 'updatedAt'
+]);
+
+/**
  * Build a Mango selector for simple checkbox filters
  */
 export function buildSimpleFiltersSelector(
@@ -60,9 +70,14 @@ export function buildSimpleFiltersSelector(
         }
       }
     } else {
+      // Determine if field is top-level or in customFields
+      const queryField = TOP_LEVEL_SCHEMA_FIELDS.has(fieldName) 
+        ? fieldName 
+        : `customFields.${fieldName}`;
+      
       // Regular field - check if value is in the selected values
       conditions.push({
-        [fieldName]: { $in: values }
+        [queryField]: { $in: values }
       });
     }
   });

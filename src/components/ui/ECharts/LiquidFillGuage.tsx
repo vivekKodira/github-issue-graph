@@ -2,6 +2,7 @@
 import "echarts-liquidfill";
 import type { CSSProperties, JSX } from "react";
 import { ECharts } from "./ECharts";
+import { ErrorBoundary } from "./ErrorBoundary";
 import type { LiquidFillGaugeOption } from "./LiquidFillGaugeOption";
 
 export interface LiquidFillGaugeProps {
@@ -11,9 +12,11 @@ export interface LiquidFillGaugeProps {
 
 export function LiquidFillGauge({ option, style }: LiquidFillGaugeProps): JSX.Element {
   return (
-    <ECharts
-      option={option}
-      style={style}
-    />
+    <ErrorBoundary chartName="Liquid Fill Gauge">
+      <ECharts
+        option={option}
+        style={style}
+      />
+    </ErrorBoundary>
   );
 }

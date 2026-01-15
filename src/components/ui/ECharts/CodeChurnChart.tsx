@@ -2,7 +2,7 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { ErrorBoundary } from "./ErrorBoundary";
 
-export const CodeChurnChart = ({ prs, styleOptions }) => {
+const CodeChurnChartContent = ({ prs, styleOptions }) => {
     const [chartOptions, setChartOptions] = useState(null);
 
     useEffect(() => {
@@ -139,10 +139,16 @@ export const CodeChurnChart = ({ prs, styleOptions }) => {
     return (
         <div>
             {chartOptions && (
-                <ErrorBoundary chartName="Code Churn">
-                    <ECharts option={chartOptions} style={styleOptions} />
-                </ErrorBoundary>
+                <ECharts option={chartOptions} style={styleOptions} />
             )}
         </div>
+    );
+};
+
+export const CodeChurnChart = (props) => {
+    return (
+        <ErrorBoundary chartName="Code Churn">
+            <CodeChurnChartContent {...props} />
+        </ErrorBoundary>
     );
 }; 

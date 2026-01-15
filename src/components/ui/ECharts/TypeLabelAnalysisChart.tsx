@@ -25,10 +25,7 @@ interface TypeLabelAnalysisChartProps {
   selectedDimensionValues?: string[]; // New prop (controlled mode)
   filterOperator?: "AND" | "OR"; // New prop (controlled mode)
   selectedFilters?: Record<string, string[]>; // New prop (controlled mode)
-  styleOptions?: {
-    width: string;
-    height: string;
-  };
+  styleOptions?: Record<string, unknown>;
 }
 
 interface ChartData {
