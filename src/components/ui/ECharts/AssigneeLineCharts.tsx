@@ -9,6 +9,7 @@ import { sortSprintsNumerically } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
 import { TaskFormat } from '@/util/taskConverter';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface AssigneeData {
   assignee: string;
@@ -20,8 +21,41 @@ interface AssigneeData {
 export const createLineChartData = (tasks, projectKeys) => {
   const sprintData = {};
   const assigneeData = {};
+  const allSprints = new Set();
+  const sprintStats = {
+    totalTasks: 0,
+    doneTasks: 0,
+    tasksWithSprint: 0,
+    tasksWithAssignees: 0,
+    processedTasks: 0
+  };
 
-  // Initialize data structures
+  // First pass: collect all sprints and basic stats
+  tasks.forEach((task) => {
+    sprintStats.totalTasks++;
+    
+    if (task.Status === "Done") {
+      sprintStats.doneTasks++;
+    }
+
+    const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
+    if (sprint) {
+      sprintStats.tasksWithSprint++;
+      // Normalize sprint format to remove extra spaces
+      const normalizedSprint = sprint.replace(/\s+/g, ' ').trim();
+      allSprints.add(normalizedSprint);
+    }
+
+    const taskAssignees = task.assignees && task.assignees.length > 0
+      ? task.assignees
+      : null;
+    
+    if (taskAssignees) {
+      sprintStats.tasksWithAssignees++;
+    }
+  });
+
+  // Second pass: process only valid tasks for chart data
   tasks.forEach((task) => {
     if (task.Status !== "Done") {
       return; // Skip incomplete tasks
@@ -31,6 +65,9 @@ export const createLineChartData = (tasks, projectKeys) => {
     if (!sprint) {
       return; // Skip tasks with no sprint
     }
+    
+    // Normalize sprint format to remove extra spaces
+    const normalizedSprint = sprint.replace(/\s+/g, ' ').trim();
 
     // Get task weight based on actual days or estimate days
     const actualDays = task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value];
@@ -44,33 +81,47 @@ export const createLineChartData = (tasks, projectKeys) => {
 
     if (!taskAssignees) return;  // Skip if no assignees
 
+    sprintStats.processedTasks++;
+
     taskAssignees.forEach((assignee) => {
-      if (!sprintData[sprint]) {
-        sprintData[sprint] = {};
+      if (!sprintData[normalizedSprint]) {
+        sprintData[normalizedSprint] = {};
       }
-      if (!sprintData[sprint][assignee]) {
-        sprintData[sprint][assignee] = 0;
+      if (!sprintData[normalizedSprint][assignee]) {
+        sprintData[normalizedSprint][assignee] = 0;
       }
-      sprintData[sprint][assignee] += weight;
+      sprintData[normalizedSprint][assignee] += weight;
       assigneeData[assignee] = true;
     });
   });
 
-  // Sort sprints
+  // Sort sprints numerically
   const sprints = sortSprintsNumerically(Object.keys(sprintData));
+  const allSprintsSorted = sortSprintsNumerically(Array.from(allSprints));
   const assignees = Object.keys(assigneeData);
 
-  // Create series data for each assignee
+  // Create series data for each assignee with all sprints included
   const assigneeSeries = assignees.map((assignee) => ({
     name: assignee,
     type: "line",
-    data: sprints.map((sprint) => sprintData[sprint][assignee] || 0),
+    data: allSprintsSorted.map((sprint) => sprintData[sprint]?.[assignee] || 0),
   }));
+
+  // Debug logging
+  console.log('AssigneeLineCharts Debug Info:', {
+    sprintStats,
+    totalSprints: allSprintsSorted.length,
+    sprintsWithData: sprints.length,
+    missingSprints: allSprintsSorted.filter(s => !sprints.includes(s)),
+    allSprints: allSprintsSorted,
+    sprintsWithChartData: sprints
+  });
 
   return {
     sprints,
-    
+    allSprints: allSprintsSorted,
     assigneeSeries,
+    sprintStats
   };
 };
 
@@ -97,7 +148,17 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
     }
 
 
-    const { sprints, assigneeSeries } = createLineChartData(flattenedData, projectKeys);
+    const { sprints, allSprints, assigneeSeries, sprintStats } = createLineChartData(flattenedData, projectKeys);
+    
+    // Log additional debugging information
+    if (allSprints.length > sprints.length) {
+      console.log('Missing sprints in chart data:', {
+        allSprints,
+        chartSprints: sprints,
+        missing: allSprints.filter(s => !sprints.includes(s)),
+        stats: sprintStats
+      });
+    }
     
     // Generate insights from chart data
     const insights: Insight[] = [];
@@ -106,8 +167,8 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
       if (data.length >= 2) {
         const currentValue = data[data.length - 1];
         const previousValue = data[data.length - 2];
-        const currentSprint = sprints[sprints.length - 1];
-        const previousSprint = sprints[sprints.length - 2];
+        const currentSprint = allSprints[allSprints.length - 1];
+        const previousSprint = allSprints[allSprints.length - 2];
 
         if (currentValue < previousValue) {
           const decrease = ((previousValue - currentValue) / previousValue * 100).toFixed(1);
@@ -199,7 +260,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
       },
       xAxis: {
         type: "category",
-        data: sprints,
+        data: allSprints,
       },
       yAxis: {
         type: "value",
@@ -324,11 +385,13 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
               })}
             </Box>
             
-            <ECharts option={chartOptionsArray[0]} style={{
-              ...styleOptions,
-              transition: 'all 0.3s ease-in-out',
-              transform: Object.values(isTableVisible).some(isVisible => isVisible) ? 'scale(0.95)' : 'scale(1)'
-            }} />
+            <ErrorBoundary chartName="Assignee Line">
+              <ECharts option={chartOptionsArray[0]} style={{
+                ...styleOptions,
+                transition: 'all 0.3s ease-in-out',
+                transform: Object.values(isTableVisible).some(isVisible => isVisible) ? 'scale(0.95)' : 'scale(1)'
+              }} />
+            </ErrorBoundary>
           </Box>
 
           {/* Drawers for each assignee */}

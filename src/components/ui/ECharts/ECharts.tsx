@@ -40,13 +40,16 @@ export const ECharts = forwardRef<
     container.style.minWidth = '100%';
 
     // Get parent width
-    const parentWidth = container.parentElement.offsetWidth;
+    const parentElement = container.parentElement;
+    if (!parentElement) return;
+    
+    const parentWidth = parentElement.offsetWidth;
 
     // Initialize with explicit dimensions
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(container, null, {
         width: parentWidth,
-        height: style.height || 500
+        height: style?.height || 500
       });
     }
 
@@ -54,13 +57,13 @@ export const ECharts = forwardRef<
     chartInstance.current.setOption(option, true);
 
     const resizeObserver = new ResizeObserver(() => {
-      if (chartInstance.current) {
+      if (chartInstance.current && container.parentElement) {
         const newWidth = container.parentElement.offsetWidth;
         chartInstance.current.resize({ width: newWidth });
       }
     });
 
-    resizeObserver.observe(container.parentElement);
+    resizeObserver.observe(parentElement);
 
     return () => {
       resizeObserver.disconnect();

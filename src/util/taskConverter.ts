@@ -24,6 +24,8 @@ export interface TaskFormat {
     type: string;
     url: string;
   }>;
+  // Allow any additional custom fields
+  [key: string]: any;
 }
 
 export function convertRestApiFormat(source: any): TaskFormat {
@@ -35,6 +37,7 @@ export function convertRestApiFormat(source: any): TaskFormat {
     repo_owner: source.repository_url?.split("/")[4] || null,
     labels: source.labels?.map((label) => label.name) || [],
     assignees: source.assignees?.map((assignee) => assignee.login) || [],
+    milestone: source.milestone?.title || null,
     Title: source.title || null,
     Status: source.state === "closed" ? "Done" : "Todo",
     [PROJECT_KEYS.SPRINT]: null,
@@ -46,12 +49,16 @@ export function convertRestApiFormat(source: any): TaskFormat {
     body: source.body || null,
     state: source.state || null,
     html_url: source.html_url || null,
+    createdAt: source.created_at || null,
     links: []
   };
 }
 
 export function convertGraphQLFormat(source: any): TaskFormat {
+  // Start with all source fields (preserve everything from flattening)
   return {
+    ...source, // Keep all fields from source
+    // Override with specific mappings for TaskFormat fields
     id: source.id || null,
     title: source.title || null,
     issue_number: source.issue_number || null,
@@ -61,15 +68,11 @@ export function convertGraphQLFormat(source: any): TaskFormat {
     assignees: source.assignees || [],
     Title: source.title || null,
     Status: source.Status || "Todo",
-    [PROJECT_KEYS.SPRINT]: source[PROJECT_KEYS.SPRINT] || null,
-    [PROJECT_KEYS.SIZE]: source[PROJECT_KEYS.SIZE] || null,
-    [PROJECT_KEYS.ESTIMATE_DAYS]: source[PROJECT_KEYS.ESTIMATE_DAYS] || null,
-    [PROJECT_KEYS.ACTUAL_DAYS]: source[PROJECT_KEYS.ACTUAL_DAYS] || null,
     // Fields used by graphCreator
     number: source.issue_number || null,
     body: source.body || null,
     state: source.Status || null,
     html_url: source.html_url || null,
-    links: []
+    links: source.links || []
   };
 } 

@@ -2,8 +2,12 @@ export const query = `
 query ($projectId: ID!, $after: String) {
   node(id: $projectId) {
     ... on ProjectV2 {
-      fields(first: 20) {
+      fields(first: 100) {
         nodes {
+          ... on ProjectV2Field {
+            id
+            name
+          }
           ... on ProjectV2SingleSelectField {
             id
             name
@@ -12,12 +16,17 @@ query ($projectId: ID!, $after: String) {
               name
             }
           }
+          ... on ProjectV2IterationField {
+            id
+            name
+          }
         }
       }
       items(first: 50, after: $after) {
         nodes {
           id
           content {
+            __typename
             ... on Issue {
               id
               title
@@ -25,6 +34,12 @@ query ($projectId: ID!, $after: String) {
               body
               state
               url
+              createdAt
+              issueType {
+                id
+                name
+                description
+              }
               repository {
                 name
                 owner { login }
@@ -37,6 +52,10 @@ query ($projectId: ID!, $after: String) {
                   name
                   color
                 }
+              }
+              milestone {
+                title
+                number
               }
               subIssues: timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
                 nodes {
@@ -51,7 +70,12 @@ query ($projectId: ID!, $after: String) {
                 }
               }
             }
-            __typename
+            ... on PullRequest {
+              id
+              title
+              number
+              mergedAt
+            }
           }
           fieldValues(first: 100) {
             nodes {

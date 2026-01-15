@@ -127,24 +127,115 @@ If your repository doesn't use these custom fields, some charts and insights may
    npm run dev
    ```
 
+## Debug Mode
+
+The application includes a debug mode for troubleshooting and data inspection. Debug mode is controlled via browser localStorage, so you can enable/disable it without code changes or rebuilding.
+
+### Enable Debug Mode
+
+1. Open your browser's developer console (F12 or Cmd+Option+I on Mac)
+2. Run the following command:
+   ```javascript
+   localStorage.setItem('ENABLE_DEBUG', 'true')
+   ```
+3. Refresh the page
+4. Click "Render" to fetch data
+
+### What Debug Mode Does
+
+When enabled, debug mode will:
+- Log the first issue's data structure to the console
+- Display all available field names
+- Automatically download a `flattened_tasks_debug.json` file with the complete data
+- Log raw GraphQL responses (if using project queries)
+
+### Disable Debug Mode
+
+To disable debug mode, run this in the browser console:
+```javascript
+localStorage.removeItem('ENABLE_DEBUG')
+```
+
+### Use Cases
+
+Debug mode is useful for:
+- Inspecting the data structure of your issues
+- Verifying custom fields are being fetched correctly
+- Troubleshooting GraphQL queries
+- Understanding the flattened data format
+- Testing new custom field configurations
+
 ## Screenshots
 
 ### Project Overview
-*Track project completion, sprint velocity, effort prediction, and task distribution at a glance*
-![Project Overview](docs/images/project-overview.png)
+#### Track project completion
+![track_project](docs/images/track_project_completion.png)
+
+####  Sprint velocity
+![Sprint Velocity](docs/images/sprint_velocity.png)
+
+#### effort prediction
 ![Prediction](docs/images/effort-prediction.png)
 
-
 ### Team Analysis
-*Monitor team performance with assignee workload and reviewer contribution charts*
-![Team Analysis](docs/images/team-analysis.png)
+
+#### Issue categorisation By person
+![Issue complexity](docs/images/issue_complexity_by_person.png)
+
+#### Issue categorisation By person Pie chart
+![Issue complexity pie chart](docs/images/issue_complexity_by_person_pie.png)
+
+
+#### Efforts by person per sprint
+![Efforts by person per sprint](docs/images/assignee_efforts_per_sprint.png)
+
+#### Review comments recieved
+![Efforts by person per sprint](docs/images/comments__received_by_month_line.png)
+
+#### Review comments given
+![Efforts by person per sprint](docs/images/comments_by_reviewer_pie.png)
+
 
 ### Pull Requests
-*Analyze code review patterns, PR lifecycle, and review quality metrics*
-![Pull Requests](docs/images/pull-requests.png)
 
-### Issue Graph
-*Visualize issue dependencies and relationships in an interactive network graph*
+#### Pull Request Complexity vs Time to review
+![Pull Request Complexity vs Time to review](docs/images/pr_size_time.png)
+
+#### Code churn over time
+![Code churn over time](docs/images/code_churn.png)
+
+#### Review quality
+![Review quality](docs/images/review_quality_metrics.png)
+
+#### Review comments sentence cloud
+![Review comments sentence cloud](docs/images/review_comment_sentence_cloud.png)
+
+#### Pull Request Submission Frequency
+![Pull Request Submission Frequency](docs/images/pr_submission_frequency.png)
+
+
+#### Pull Request (Days between PRs)
+![Pull Request (Days between PRs)](docs/images/prs_days_between.png)
+
+
+### Issues Analysis
+
+#### Issue search & categorisation
+![Issue search & categorisation](docs/images/issue_categorisation.png)
+
+
+#### Issue Creation timeline
+
+* Example: Bugs found by testers
+![Issue creation timeline](docs/images/issue_creation_timeline.png)
+
+* Example: Change requests
+![Issue creation timeline](docs/images/change_request_creation.png)
+
+#### RCA sentence cloud
+![RCA sentence cloud](docs/images/rca_sentence_cloud.png)
+
+#### Visualize issue dependencies and relationships in an interactive network graph
 ![Issue Graph](docs/images/issue-graph.png)
 ![Issue Graph](docs/images/issue-graph_1.png)
 

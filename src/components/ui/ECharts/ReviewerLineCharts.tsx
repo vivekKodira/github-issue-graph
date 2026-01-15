@@ -4,6 +4,7 @@ import type { EChartsOption, LineSeriesOption } from 'echarts';
 import { Box } from "@chakra-ui/react";
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ReviewComment {
   body: string;
@@ -109,7 +110,7 @@ const createEmptyChartOptions = (): EChartsOption => ({
   }] as LineSeriesOption[]
 });
 
-export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
+const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const [chartOptions, setChartOptions] = useState<EChartsOption>(createEmptyChartOptions());
   const [selectedReviewers, setSelectedReviewers] = useState<string[]>([]);
   const [availableReviewers, setAvailableReviewers] = useState<string[]>([]);
@@ -231,5 +232,13 @@ export const ReviewerLineCharts = ({ flattenedData, styleOptions, searchTerm, on
         <ECharts option={chartOptions} style={styleOptions} />
       </Box>
     </Box>
+  );
+};
+
+export const ReviewerLineCharts = (props) => {
+  return (
+    <ErrorBoundary chartName="Reviewer Line">
+      <ReviewerLineChartsContent {...props} />
+    </ErrorBoundary>
   );
 }; 

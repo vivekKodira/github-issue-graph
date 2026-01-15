@@ -5,6 +5,7 @@ import pieChartTemplate from "./templates/pieChartTemplate.js";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { ChartDropdown } from './ChartDropdown';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export const createPieChartData = (tasks, projectKeys) => {
   const assigneeData = {};
@@ -112,7 +113,9 @@ export const AssigneePieCharts = ({ flattenedData, styleOptions, searchTerm }) =
         placeholder="Select an assignee"
       />
       <Box w="100%" h="350px">
-        <ECharts option={chartOptions} style={styleOptions} />
+        <ErrorBoundary chartName="Assignee Pie">
+          <ECharts option={chartOptions} style={styleOptions} />
+        </ErrorBoundary>
       </Box>
     </Box>
   );

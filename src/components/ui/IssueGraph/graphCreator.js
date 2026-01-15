@@ -85,12 +85,16 @@ export function createGraphData(issues, prs) {
         if (issue.links && issue.links.length > 0) {
             issue.links.forEach(link => {
                 if(link.type === 'issue')  {
-                    graphData.links.push({
-                        source: issue.number,
-                        target: parseInt(link.id),
-                        value: 1,
-                        type: 'issue'
-                    });
+                    const targetId = parseInt(link.id);
+                    // Only create link if target node exists
+                    if (issueMap.has(targetId)) {
+                        graphData.links.push({
+                            source: issue.number,
+                            target: targetId,
+                            value: 1,
+                            type: 'issue'
+                        });
+                    }
                 }
             });
         }

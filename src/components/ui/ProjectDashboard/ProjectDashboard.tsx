@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import {
   VStack,
   Box,
@@ -9,6 +9,8 @@ import {
 } from "@chakra-ui/react";
 import fetchProjectDetails from "@/util/projectFetcher";
 import fetchPRs from "@/util/prFetcher";
+import { useRxDB } from "@/context/RxDBContext";
+import { bulkInsertTasks, bulkInsertPRs, taskFromRxDBFormat, prFromRxDBFormat, destroyDatabase } from "@/db/rxdb";
 import { StatusChart } from "@/components/ui/ECharts/StatusChart";
 import { SprintChart } from "@/components/ui/ECharts/SprintChart";
 import { CompletionChart } from "@/components/ui/ECharts/CompletionChart";
@@ -32,6 +34,29 @@ import { ReviewerLineCharts } from "../ECharts/ReviewerLineCharts";
 import { AuthorLineCharts } from "../ECharts/AuthorLineCharts";
 import { Insights } from "../ECharts/Insights";
 import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
+import { IssueAnalysisDashboardV2 } from "../ECharts/IssueAnalysisDashboardV2";
+import { RCAWordCloudChart } from "../ECharts/RCAWordCloudChart";
+
+// Debug flag - controlled by localStorage
+// To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
+// To disable: localStorage.removeItem('ENABLE_DEBUG')
+const ENABLE_DEBUG = () => localStorage.getItem('ENABLE_DEBUG') === 'true';
+
+const debugDownloadData = (data: unknown[], filename: string) => {
+  if (!ENABLE_DEBUG()) return;
+  
+  console.log(`Debug: ${filename} (first item):`, data[0]);
+  console.log(`Debug: All fields in first item:`, Object.keys(data[0] || {}));
+  
+  const dataStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 const fetchPlannedTaskCompletedCount = (tasks) => {
   const completedTasks = tasks.filter((task) => task.Status === "Done");
@@ -85,6 +110,7 @@ export const ProjectDashboard = ({
   plannedEndDate,
 }) => {
   const { projectKeys } = useProjectKeys();
+  const { db, isReady: isDbReady } = useRxDB();
   const [loading, setLoading] = useState(false);
   const [flattenedData, setFlattenedData] = useState(null);
   const [prs, setPRs] = useState([]);
@@ -92,7 +118,7 @@ export const ProjectDashboard = ({
   const [insights, setInsights] = useState<Insight[]>([]);
   const insightsRef = useRef<Insight[]>([]);
   const isButtonDisabled =
-    !repoOwner || (!repository && !project) || !githubToken;
+    !repoOwner || (!repository && !project) || !githubToken || !isDbReady;
 
   const [plannedTaskCompletionData, setPlannedTaskCompletionData] = useState(0);
   const [overallTaskCompletionData, setOverallTaskCompletionData] = useState(0);
@@ -104,6 +130,11 @@ export const ProjectDashboard = ({
   }), []);
 
   const handleClick = async () => {
+    if (!isDbReady) {
+      console.error('Database is not ready');
+      return;
+    }
+
     setLoading(true);
     try {
       // Clear insights before fetching new data
@@ -124,8 +155,13 @@ export const ProjectDashboard = ({
         })
       ]);
 
-      // Only update states if the data has actually changed
-      if (JSON.stringify(flattenedTasks) !== JSON.stringify(flattenedData)) {
+      // Store tasks in RxDB
+      if (flattenedTasks && flattenedTasks.length > 0) {
+        debugDownloadData(flattenedTasks, 'flattened_tasks_debug.json');
+        
+        await bulkInsertTasks(flattenedTasks);
+        
+        // Update state for immediate use (the RxDB subscription will also update it)
         setFlattenedData(flattenedTasks);
         setPlannedTaskCompletionData(
           fetchPlannedTaskCompletedData(flattenedTasks, projectKeys)
@@ -139,14 +175,13 @@ export const ProjectDashboard = ({
         );
       }
 
-      // Only update PRs if the data has actually changed
-      const currentPRsString = JSON.stringify(prs);
-      const newPRsString = JSON.stringify(fetchedPRs);
-      if (currentPRsString !== newPRsString) {
-        console.log('PRs data changed, updating state');
+      // Store PRs in RxDB
+      if (fetchedPRs && fetchedPRs.length > 0) {
+        await bulkInsertPRs(fetchedPRs);
+        
+        // Update state for immediate use
+        console.log('PRs data fetched and stored, updating state');
         setPRs(fetchedPRs);
-      } else {
-        console.log('PRs data unchanged, skipping update');
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -154,6 +189,50 @@ export const ProjectDashboard = ({
       setLoading(false);
     }
   };
+
+  // Subscribe to RxDB data changes
+  useEffect(() => {
+    if (!db || !isDbReady) return;
+
+    // Subscribe to tasks
+    const tasksSubscription = db.tasks
+      .find()
+      .sort({ updatedAt: 'desc' })
+      .$
+      .subscribe((docs) => {
+        if (docs.length > 0) {
+          const tasks = docs.map(taskFromRxDBFormat);
+          setFlattenedData(tasks);
+          setPlannedTaskCompletionData(
+            fetchPlannedTaskCompletedData(tasks, projectKeys)
+          );
+          setOverallTaskCompletionData(
+            fetchoverAllCompletedData(
+              tasks,
+              plannedEffortForProject,
+              projectKeys
+            )
+          );
+        }
+      });
+
+    // Subscribe to PRs
+    const prsSubscription = db.prs
+      .find()
+      .sort({ updatedAt: 'desc' })
+      .$
+      .subscribe((docs) => {
+        if (docs.length > 0) {
+          const prData = docs.map(prFromRxDBFormat);
+          setPRs(prData);
+        }
+      });
+
+    return () => {
+      tasksSubscription.unsubscribe();
+      prsSubscription.unsubscribe();
+    };
+  }, [db, isDbReady, projectKeys, plannedEffortForProject]);
 
   const handleInsightsGenerated = useCallback((newInsights: Insight[]) => {
     // Ensure all insights have the required severity property
@@ -179,25 +258,52 @@ export const ProjectDashboard = ({
     setActiveTab(details.value);
   }, []);
 
+  const handleClearDatabase = async () => {
+    if (confirm('This will destroy the database and reload the page. Continue?')) {
+      try {
+        await destroyDatabase();
+        window.location.reload();
+      } catch (error) {
+        console.error('Error clearing database:', error);
+        alert('Error clearing database. Please close all tabs using this app and try again.');
+      }
+    }
+  };
+
   // Memoize the PRs data to prevent unnecessary re-renders
   const memoizedPRs = useMemo(() => {
     console.log('Memoizing PRs data');
     return prs;
-  }, [JSON.stringify(prs)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prs.length]);
 
   return (
     <VStack align="stretch" width="100%">
       {/* Configuration Section */}
       <Box p={6} borderRadius="lg" borderWidth="1px">
-        <Button
-          disabled={isButtonDisabled}
-          id="render-graph"
-          loading={loading}
-          colorScheme="blue"
-          onClick={handleClick}
-        >
-          Render
-        </Button>
+        {!isDbReady && (
+          <Box mb={3} p={2} borderRadius="md" bg="blue.50" color="blue.700" fontSize="sm">
+            Initializing database...
+          </Box>
+        )}
+        <Box display="flex" gap={3}>
+          <Button
+            disabled={isButtonDisabled}
+            id="render-graph"
+            loading={loading}
+            colorScheme="blue"
+            onClick={handleClick}
+          >
+            Render
+          </Button>
+          <Button
+            colorScheme="red"
+            variant="outline"
+            onClick={handleClearDatabase}
+          >
+            Clear Database
+          </Button>
+        </Box>
       </Box>
 
       {flattenedData && (
@@ -366,6 +472,20 @@ export const ProjectDashboard = ({
 
             {/* Issue Graph Tab */}
             <Tabs.Content value="issues">
+              <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
+                {/* Using V2 Dashboard with Advanced Mango Query Support */}
+                <IssueAnalysisDashboardV2
+                  flattenedData={flattenedData}
+                  styleOptions={styleOptions}
+                />
+              </Box>
+              <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
+                <RCAWordCloudChart 
+                  issues={flattenedData} 
+                  styleOptions={styleOptions}
+                  openaiApiKey={openaiApiKey}
+                />
+              </Box>
               <Box p={6} borderRadius="lg" borderWidth="1px">
                 <IssueGraph issues={flattenedData} prs={memoizedPRs} />
               </Box>

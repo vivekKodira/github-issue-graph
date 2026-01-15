@@ -2,6 +2,7 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { Box } from "@chakra-ui/react";
 import { ChartDropdown } from "./ChartDropdown";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 // Accepts: prs (array of PRs), styleOptions (for ECharts)
 export const AuthorPRFrequencyChart = ({ prs, styleOptions }) => {
@@ -77,7 +78,11 @@ export const AuthorPRFrequencyChart = ({ prs, styleOptions }) => {
         placeholder="Select authors"
       />
       <Box w="100%" h="350px">
-        {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+        {chartOptions && (
+          <ErrorBoundary chartName="Author PR Frequency">
+            <ECharts option={chartOptions} style={styleOptions} />
+          </ErrorBoundary>
+        )}
       </Box>
     </Box>
   );

@@ -3,6 +3,7 @@ import { createGraphData } from "./graphCreator";
 import { createGraph } from "./graph";
 import "./IssueGraph.css";
 import { Box, Stack, Text } from "@chakra-ui/react";
+import { ErrorBoundary } from "../ECharts/ErrorBoundary";
 
 interface Issue {
   id: string;
@@ -60,6 +61,7 @@ export const IssueGraph = ({ issues, prs }: IssueGraphProps) => {
     labels: [],
     states: []
   });
+  const [error, setError] = useState<Error | null>(null);
 
   // Extract unique labels and states from the data
   const uniqueLabels = Array.from(new Set(
@@ -98,75 +100,87 @@ export const IssueGraph = ({ issues, prs }: IssueGraphProps) => {
 
   useEffect(() => {
     if (graphRef.current && issues) {
-      const { filteredIssues, filteredPRs } = filterData(issues, prs);
-      const graphData = createGraphData(filteredIssues, filteredPRs);
-      createGraph(graphRef.current, graphData);
+      try {
+        const { filteredIssues, filteredPRs } = filterData(issues, prs);
+        const graphData = createGraphData(filteredIssues, filteredPRs);
+        createGraph(graphRef.current, graphData);
+        setError(null);
+      } catch (err) {
+        console.error("Error creating graph:", err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
     }
   }, [issues, prs, filters]);
 
+  if (error) {
+    throw error; // Re-throw to be caught by ErrorBoundary
+  }
+
   return (
-    <Box>
-      <Stack direction="row" gap={4} mb={4}>
-        <Box>
-          <Text fontSize="sm" mb={1}>Filter by Labels</Text>
-          <select
-            multiple
-            value={filters.labels}
-            onChange={(e) => {
-              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-              setFilters(prev => ({ ...prev, labels: selectedOptions }));
-            }}
-            style={{
-              padding: '4px 8px',
-              borderRadius: '4px',
-              border: '1px solid #E2E8F0',
-              fontSize: '14px',
-              width: '200px',
-              height: '120px'
-            }}
-          >
-            {uniqueLabels.map(label => (
-              <option key={label} value={label}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <Text fontSize="xs" mt={1} color="gray.500">
-            Hold Ctrl/Cmd to select multiple
-          </Text>
-        </Box>
+    <ErrorBoundary chartName="Issue Graph">
+      <Box>
+        <Stack direction="row" gap={4} mb={4}>
+          <Box>
+            <Text fontSize="sm" mb={1}>Filter by Labels</Text>
+            <select
+              multiple
+              value={filters.labels}
+              onChange={(e) => {
+                const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+                setFilters(prev => ({ ...prev, labels: selectedOptions }));
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid #E2E8F0',
+                fontSize: '14px',
+                width: '200px',
+                height: '120px'
+              }}
+            >
+              {uniqueLabels.map(label => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Text fontSize="xs" mt={1} color="gray.500">
+              Hold Ctrl/Cmd to select multiple
+            </Text>
+          </Box>
 
-        <Box>
-          <Text fontSize="sm" mb={1}>Filter by States</Text>
-          <select
-            multiple
-            value={filters.states}
-            onChange={(e) => {
-              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-              setFilters(prev => ({ ...prev, states: selectedOptions }));
-            }}
-            style={{
-              padding: '4px 8px',
-              borderRadius: '4px',
-              border: '1px solid #E2E8F0',
-              fontSize: '14px',
-              width: '200px',
-              height: '120px'
-            }}
-          >
-            {uniqueStates.map(state => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </select>
-          <Text fontSize="xs" mt={1} color="gray.500">
-            Hold Ctrl/Cmd to select multiple
-          </Text>
-        </Box>
-      </Stack>
+          <Box>
+            <Text fontSize="sm" mb={1}>Filter by States</Text>
+            <select
+              multiple
+              value={filters.states}
+              onChange={(e) => {
+                const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+                setFilters(prev => ({ ...prev, states: selectedOptions }));
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid #E2E8F0',
+                fontSize: '14px',
+                width: '200px',
+                height: '120px'
+              }}
+            >
+              {uniqueStates.map(state => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+            <Text fontSize="xs" mt={1} color="gray.500">
+              Hold Ctrl/Cmd to select multiple
+            </Text>
+          </Box>
+        </Stack>
 
-      <div ref={graphRef} className="graph-container" />
-    </Box>
+        <div ref={graphRef} className="graph-container" />
+      </Box>
+    </ErrorBoundary>
   );
 };

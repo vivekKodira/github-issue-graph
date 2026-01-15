@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import barChartTemplate from "./templates/barChartTemplate.js";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
+import { ErrorBoundary } from "./ErrorBoundary";
 
 interface ChartData {
   stackedBySize: {
@@ -75,7 +76,7 @@ export const createChartData = (tasks, projectKeys): ChartData => {
   return result;
 };
 
-export const AssigneeChart = ({ flattenedData, styleOptions, searchTerm }) => {
+const AssigneeChartContent = ({ flattenedData, styleOptions, searchTerm }) => {
   const { projectKeys } = useProjectKeys();
   const [chartOptions, setChartOptions] = useState(null);
   
@@ -101,7 +102,9 @@ export const AssigneeChart = ({ flattenedData, styleOptions, searchTerm }) => {
     const chartOptions = JSON.parse(JSON.stringify(barChartTemplate));
     chartOptions.xAxis.data = chartData?.stackedBySize?.categories || [];
     chartOptions.series = chartData?.stackedBySize?.series || [];
-    if(chartOptions.series[0].data.length <=1) {
+    const firstSeriesData = chartOptions.series?.[0]?.data;
+    if (!firstSeriesData || firstSeriesData.length <= 1) {
+      setChartOptions(null);
       return;
     }
     setChartOptions(chartOptions);
@@ -109,7 +112,17 @@ export const AssigneeChart = ({ flattenedData, styleOptions, searchTerm }) => {
   
   return (
     <div >
-      {chartOptions && <ECharts option={chartOptions} style={styleOptions} />}
+      {chartOptions && (
+        <ECharts option={chartOptions} style={styleOptions} />
+      )}
     </div>
+  );
+};
+
+export const AssigneeChart = (props) => {
+  return (
+    <ErrorBoundary chartName="Assignee">
+      <AssigneeChartContent {...props} />
+    </ErrorBoundary>
   );
 };
