@@ -148,7 +148,7 @@ interface FetchPRsParams {
 async function fetchPRs({ repoOwner, repository, githubToken }: FetchPRsParams) {
     try {
         const cacheKey = `prs`;
-        let prs = fetchFromCache({cacheKey, repository});
+        let prs = await fetchFromCache({cacheKey, repository});
         
         if (prs) {
             toaster.create({
@@ -164,7 +164,7 @@ async function fetchPRs({ repoOwner, repository, githubToken }: FetchPRsParams) 
             const rawPRs = await fetchAllPullRequests(repoOwner, repository, githubToken);
             prs = rawPRs.map(flattenPRResponse);
             
-            updateLocalCache({cacheKey, repository, data:prs});
+            await updateLocalCache({cacheKey, repository, data:prs});
         }
         
         return prs;

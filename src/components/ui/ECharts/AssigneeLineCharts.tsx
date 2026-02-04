@@ -5,7 +5,7 @@ import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { Box, Table, Stack } from "@chakra-ui/react";
 import { LuChevronDown, LuX } from "react-icons/lu";
 
-import { sortSprintsNumerically } from '@/util/commonFunctions';
+import { sortSprintsNumerically, NO_SPRINT_LABEL } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
 import { TaskFormat } from '@/util/taskConverter';
@@ -55,19 +55,15 @@ export const createLineChartData = (tasks, projectKeys) => {
     }
   });
 
-  // Second pass: process only valid tasks for chart data
+  // Second pass: process Done tasks (include no-sprint as NO_SPRINT_LABEL)
   tasks.forEach((task) => {
     if (task.Status !== "Done") {
       return; // Skip incomplete tasks
     }
 
     const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
-    if (!sprint) {
-      return; // Skip tasks with no sprint
-    }
-    
-    // Normalize sprint format to remove extra spaces
-    const normalizedSprint = sprint.replace(/\s+/g, ' ').trim();
+    const normalizedSprint = (sprint && sprint.replace(/\s+/g, ' ').trim()) || NO_SPRINT_LABEL;
+    allSprints.add(normalizedSprint);
 
     // Get task weight based on actual days or estimate days
     const actualDays = task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value];
@@ -95,9 +91,11 @@ export const createLineChartData = (tasks, projectKeys) => {
     });
   });
 
-  // Sort sprints numerically
-  const sprints = sortSprintsNumerically(Object.keys(sprintData));
-  const allSprintsSorted = sortSprintsNumerically(Array.from(allSprints));
+  // Sort sprints numerically with NO_SPRINT_LABEL last
+  const sprints = Object.keys(sprintData);
+  const namedSprints = Array.from(allSprints).filter(s => s !== NO_SPRINT_LABEL);
+  sortSprintsNumerically(namedSprints);
+  const allSprintsSorted = allSprints.has(NO_SPRINT_LABEL) ? [...namedSprints, NO_SPRINT_LABEL] : namedSprints;
   const assignees = Object.keys(assigneeData);
 
   // Create series data for each assignee with all sprints included
@@ -400,13 +398,18 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
             const selectedSprint = selectedSprints[assigneeData.assignee] || 'all';
             const isVisible = isTableVisible[assigneeData.assignee] || false;
             
-            // Filter tasks by selected sprint
-            const filteredTasks = selectedSprint === 'all' 
-              ? assigneeData.tasks 
-              : assigneeData.tasks.filter(task => task[PROJECT_KEYS.SPRINT] === selectedSprint);
+            // Filter tasks by selected sprint (No Sprint = tasks with no sprint value)
+            const filteredTasks = selectedSprint === 'all'
+              ? assigneeData.tasks
+              : selectedSprint === NO_SPRINT_LABEL
+                ? assigneeData.tasks.filter(task => !task[PROJECT_KEYS.SPRINT])
+                : assigneeData.tasks.filter(task => task[PROJECT_KEYS.SPRINT] === selectedSprint);
 
-            // Get unique sprints for the filter dropdown
-            const uniqueSprints = [...new Set(assigneeData.tasks.map(task => task[PROJECT_KEYS.SPRINT]))].sort();
+            // Get unique sprints for the filter dropdown (include No Sprint last when present)
+            const sprintValues = assigneeData.tasks.map(task => task[PROJECT_KEYS.SPRINT] ?? NO_SPRINT_LABEL);
+            const uniqueSprintsSet = new Set(sprintValues);
+            const uniqueSprintsNamed = Array.from(uniqueSprintsSet).filter(s => s !== NO_SPRINT_LABEL).sort();
+            const uniqueSprints = uniqueSprintsSet.has(NO_SPRINT_LABEL) ? [...uniqueSprintsNamed, NO_SPRINT_LABEL] : uniqueSprintsNamed;
 
             // Calculate pagination
             const totalPages = Math.ceil(filteredTasks.length / pageSize);
@@ -513,7 +516,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
                               {task.title}
                             </a>
                           </Table.Cell>
-                          <Table.Cell style={{ color: '#ffffff', borderBottom: '1px solid #4a5568' }}>{task[PROJECT_KEYS.SPRINT]}</Table.Cell>
+                          <Table.Cell style={{ color: '#ffffff', borderBottom: '1px solid #4a5568' }}>{task[PROJECT_KEYS.SPRINT] ?? NO_SPRINT_LABEL}</Table.Cell>
                           <Table.Cell style={{ color: '#ffffff', borderBottom: '1px solid #4a5568' }}>{task[PROJECT_KEYS.ACTUAL_DAYS]}</Table.Cell>
                         </Table.Row>
                       ))}

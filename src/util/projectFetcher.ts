@@ -177,7 +177,7 @@ const flattenGraphQLResponse = function (response) {
 async function mainScript({projectID="", githubToken, repository="", repoOwner}): Promise<TaskFormat[]> {
     try {
         const cacheKey = "issues";
-        const cachedTasks = fetchFromCache({cacheKey, projectID, repository});
+        const cachedTasks = await fetchFromCache({cacheKey, projectID, repository});
         
         if(cachedTasks) {
             toaster.create({
@@ -217,7 +217,7 @@ async function mainScript({projectID="", githubToken, repository="", repoOwner})
 
         if (fetchedTasks && fetchedTasks.length > 0) {
             console.log(`Successfully fetched ${fetchedTasks.length} tasks from GitHub`);
-            updateLocalCache({projectID, repository, data: fetchedTasks, cacheKey});
+            await updateLocalCache({projectID, repository, data: fetchedTasks, cacheKey});
         } else {
             console.warn("No tasks fetched from GitHub");
         }

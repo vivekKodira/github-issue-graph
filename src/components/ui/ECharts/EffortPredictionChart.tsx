@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { TaskFormat } from '@/util/taskConverter';
-import { sortSprintsNumerically } from '@/util/commonFunctions';
+import { sortSprintsNumerically, NO_SPRINT_LABEL } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ErrorBoundary } from "./ErrorBoundary";
 
@@ -36,13 +36,11 @@ export const EffortPredictionChart = ({
         const sprintData: Record<string, SprintData> = {};
         const sprints = new Set<string>();
 
-        // Process tasks by sprint
+        // Process tasks by sprint (include no-sprint as NO_SPRINT_LABEL; include in total for visibility)
         flattenedData.forEach(task => {
             if (task.Status !== "Done") return;
-            
-            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
-            if (!sprint) return;
-            
+
+            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value] || NO_SPRINT_LABEL;
             sprints.add(sprint);
             if (!sprintData[sprint]) {
                 sprintData[sprint] = {
@@ -50,26 +48,30 @@ export const EffortPredictionChart = ({
                     tasks: []
                 };
             }
-            
             sprintData[sprint].tasks.push(task);
         });
 
-        const sortedSprints = sortSprintsNumerically(Array.from(sprints));
-        
-        // Calculate total completed effort and average effort per sprint
-        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => 
-            sum + sprintData[sprint].tasks.reduce((sum, task) => 
+        const namedSprints = Array.from(sprints).filter(s => s !== NO_SPRINT_LABEL);
+        sortSprintsNumerically(namedSprints);
+        const sortedSprints = sprints.has(NO_SPRINT_LABEL) ? [...namedSprints, NO_SPRINT_LABEL] : namedSprints;
+
+        // Total completed effort includes No Sprint so those tasks are visible in the chart
+        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) =>
+            sum + sprintData[sprint].tasks.reduce((sum, task) =>
                 sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0), 0);
-        const averageEffortPerSprint = sortedSprints.length > 0 ? totalCompletedEffort / sortedSprints.length : 0;
-        
+        // Average and prediction use only named sprints so velocity is meaningful
+        const totalCompletedEffortNamed = namedSprints.reduce((sum, sprint) =>
+            sum + sprintData[sprint].tasks.reduce((sum, task) =>
+                sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0), 0);
+        const averageEffortPerSprint = namedSprints.length > 0 ? totalCompletedEffortNamed / namedSprints.length : 0;
+
         // Calculate remaining effort
         const remainingEffort = plannedEffortForProject - totalCompletedEffort;
-        
-        // Calculate number of sprints needed based on average effort per sprint
-        // Handle edge cases where averageEffortPerSprint is 0 or NaN
+
+        // Calculate number of sprints needed based on average effort per named sprint
         const predictedSprints = averageEffortPerSprint > 0 ? Math.ceil(remainingEffort / averageEffortPerSprint) : 0;
-        const futureSprints = predictedSprints > 0 ? Array.from({ length: predictedSprints }, (_, i) => 
-            `Sprint ${sortedSprints.length + i + 1}`) : [];
+        const futureSprints = predictedSprints > 0 ? Array.from({ length: predictedSprints }, (_, i) =>
+            `Sprint ${namedSprints.length + i + 1}`) : [];
 
         // Generate insights
         const insights: Insight[] = [];

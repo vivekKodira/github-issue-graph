@@ -4,7 +4,7 @@ import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 
 import { TaskFormat } from '@/util/taskConverter';
-import { sortSprintsNumerically } from '@/util/commonFunctions';
+import { sortSprintsNumerically, NO_SPRINT_LABEL } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ErrorBoundary } from "./ErrorBoundary";
 
@@ -32,13 +32,11 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
         const sprintData: Record<string, SprintData> = {};
         const sprints = new Set<string>();
 
-        // Process tasks by sprint
+        // Process tasks by sprint (include no-sprint as NO_SPRINT_LABEL)
         flattenedData.forEach(task => {
             if (task.Status !== "Done") return;
-            
-            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
-            if (!sprint) return;
-            
+
+            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value] || NO_SPRINT_LABEL;
             sprints.add(sprint);
             if (!sprintData[sprint]) {
                 sprintData[sprint] = {
@@ -46,18 +44,19 @@ export const SprintVelocityChart = ({ flattenedData, styleOptions, onInsightsGen
                     tasks: []
                 };
             }
-            
             sprintData[sprint].tasks.push(task);
         });
 
-        const sortedSprints = sortSprintsNumerically(Array.from(sprints));
-        
-        // Generate insights from chart data
+        const namedSprints = Array.from(sprints).filter(s => s !== NO_SPRINT_LABEL);
+        sortSprintsNumerically(namedSprints);
+        const sortedSprints = sprints.has(NO_SPRINT_LABEL) ? [...namedSprints, NO_SPRINT_LABEL] : namedSprints;
+
+        // Generate insights from chart data (exclude "No Sprint" - compare only last two named sprints)
         const insights: Insight[] = [];
-        if (sortedSprints.length >= 2) {
-            const currentSprint = sortedSprints[sortedSprints.length - 1];
-            const previousSprint = sortedSprints[sortedSprints.length - 2];
-            
+        if (namedSprints.length >= 2) {
+            const currentSprint = namedSprints[namedSprints.length - 1];
+            const previousSprint = namedSprints[namedSprints.length - 2];
+
             // Check completed tasks
             const currentTasks = sprintData[currentSprint].tasks.length;
             const previousTasks = sprintData[previousSprint].tasks.length;
