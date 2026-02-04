@@ -1,14 +1,16 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import { ChartDropdown } from "./ChartDropdown";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { AverageByPersonTable } from "./AverageByPersonTable";
 
 // Accepts: prs (array of PRs), styleOptions (for ECharts)
 export const AuthorPRFrequencyChart = ({ prs, styleOptions }) => {
   const [chartOptions, setChartOptions] = useState(null);
   const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [allAuthors, setAllAuthors] = useState([]);
+  const [averages, setAverages] = useState({});
 
   useEffect(() => {
     if (!prs?.length) return;
@@ -39,6 +41,14 @@ export const AuthorPRFrequencyChart = ({ prs, styleOptions }) => {
       data: months.map(month => freqData[author]?.[month] || 0),
     }));
 
+    // Averages: mean monthly PR count per author (over months where they have data)
+    const avgs = {};
+    filteredAuthors.forEach(author => {
+      const values = months.map(m => freqData[author]?.[m] || 0).filter(v => v > 0);
+      avgs[author] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    });
+    setAverages(avgs);
+
     setChartOptions({
       /* title: {
         text: "PR Submission Frequency by Author",
@@ -65,25 +75,33 @@ export const AuthorPRFrequencyChart = ({ prs, styleOptions }) => {
   }, [prs, selectedAuthors]);
 
   return (
-    <Box>
-      <h3 style={{ color: '#ffffff', marginTop: '32px', marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>
-        PR Submission Frequency by Author
-      </h3>
-      <ChartDropdown
-        title="Select authors"
-        options={allAuthors}
-        selectedValues={selectedAuthors}
-        onSelectionChange={setSelectedAuthors}
-        multiple
-        placeholder="Select authors"
-      />
-      <Box w="100%" h="350px">
-        {chartOptions && (
-          <ErrorBoundary chartName="Author PR Frequency">
-            <ECharts option={chartOptions} style={styleOptions} />
-          </ErrorBoundary>
-        )}
+    <HStack align="flex-start">
+      <Box flex={1}>
+        <h3 style={{ color: '#ffffff', marginTop: '32px', marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>
+          PR Submission Frequency by Author
+        </h3>
+        <ChartDropdown
+          title="Select authors"
+          options={allAuthors}
+          selectedValues={selectedAuthors}
+          onSelectionChange={setSelectedAuthors}
+          multiple
+          placeholder="Select authors"
+        />
+        <Box w="100%" h="350px">
+          {chartOptions && (
+            <ErrorBoundary chartName="Author PR Frequency">
+              <ECharts option={chartOptions} style={styleOptions} />
+            </ErrorBoundary>
+          )}
+        </Box>
       </Box>
-    </Box>
+      <AverageByPersonTable
+        personLabel="Author"
+        valueLabel="Avg PRs"
+        averages={averages}
+        title="PR Submission Frequency by Author"
+      />
+    </HStack>
   );
 }; 

@@ -1,17 +1,19 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
+import { Box } from "@chakra-ui/react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { TaskFormat } from '@/util/taskConverter';
-import { sortSprintsNumerically, NO_SPRINT_LABEL } from '@/util/commonFunctions';
+import { sortSprintsNumerically, NO_SPRINT_LABEL, getCreationMonth } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ErrorBoundary } from "./ErrorBoundary";
+
+type XAxisMode = 'sprint' | 'creationDate';
 
 interface SprintData {
     sprint: string;
     tasks: TaskFormat[];
 }
-
 
 export const EffortPredictionChart = ({ 
     flattenedData, 
@@ -23,6 +25,7 @@ export const EffortPredictionChart = ({
     const { projectKeys } = useProjectKeys();
     const [chartOptions, setChartOptions] = useState(null);
     const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
+    const [xAxisMode, setXAxisMode] = useState<XAxisMode>('sprint');
 
     useEffect(() => {
         if (!flattenedData?.length || !plannedEffortForProject) {
@@ -30,6 +33,59 @@ export const EffortPredictionChart = ({
             if (onInsightsGenerated) {
                 onInsightsGenerated([]);
             }
+            return;
+        }
+
+        if (xAxisMode === 'creationDate') {
+            const monthData: Record<string, TaskFormat[]> = {};
+            flattenedData.forEach(task => {
+                if (task.Status !== "Done") return;
+                const month = getCreationMonth(task);
+                if (!month) return;
+                if (!monthData[month]) monthData[month] = [];
+                monthData[month].push(task);
+            });
+            const sortedMonths = Object.keys(monthData).sort();
+            const effortByMonth = sortedMonths.map(m =>
+                monthData[m].reduce((sum, task) => sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0)
+            );
+            const options = {
+                title: { text: 'Effort Prediction (by Creation Date)', textStyle: { color: '#ffffff' } },
+                grid: { left: '10%', right: '10%', top: '15%', bottom: '18%', containLabel: true },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { textStyle: { color: '#ffffff' }, data: ['Actual Effort', 'Planned Effort'] },
+                xAxis: { type: 'category', data: sortedMonths },
+                yAxis: { type: 'value', name: 'Effort (days)' },
+                dataZoom: [
+                    { type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 100, bottom: '5%', height: 20, borderColor: '#ccc', textStyle: { color: '#ffffff' }, handleStyle: { color: '#999' } },
+                    { type: 'inside', xAxisIndex: 0, start: 0, end: 100 }
+                ],
+                series: [
+                    {
+                        name: 'Actual Effort',
+                        type: 'line',
+                        data: effortByMonth,
+                        markLine: {
+                            data: [
+                                {
+                                    name: 'Planned Effort',
+                                    yAxis: plannedEffortForProject,
+                                    lineStyle: { color: '#ff0000', type: 'solid' },
+                                    label: { formatter: 'Planned Effort: {c} days' }
+                                },
+                                ...(plannedEndDate ? [{
+                                    name: 'Planned End Date',
+                                    xAxis: new Date(plannedEndDate).toLocaleDateString(),
+                                    lineStyle: { color: '#ff0000', type: 'dashed' },
+                                    label: { formatter: 'Planned End Date' }
+                                }] : [])
+                            ]
+                        }
+                    }
+                ]
+            };
+            setChartOptions(options);
+            if (onInsightsGenerated) onInsightsGenerated([]);
             return;
         }
 
@@ -146,6 +202,7 @@ export const EffortPredictionChart = ({
                     color: '#ffffff'
                 }
             },
+            grid: { left: '10%', right: '10%', top: '15%', bottom: '18%', containLabel: true },
             tooltip: {
                 trigger: 'axis',
                 axisPointer: {
@@ -177,6 +234,10 @@ export const EffortPredictionChart = ({
                 type: 'value',
                 name: 'Effort (days)'
             },
+            dataZoom: [
+                { type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 100, bottom: '5%', height: 20, borderColor: '#ccc', textStyle: { color: '#ffffff' }, handleStyle: { color: '#999' } },
+                { type: 'inside', xAxisIndex: 0, start: 0, end: 100 }
+            ],
             series: [
                 {
                     name: 'Actual Effort',
@@ -237,15 +298,32 @@ export const EffortPredictionChart = ({
             onInsightsGenerated(insights);
             setPreviousInsights(insights);
         }
-    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights, plannedEffortForProject, plannedEndDate]);
+    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights, plannedEffortForProject, plannedEndDate, xAxisMode]);
 
     return (
-        <div>
+        <Box>
+            <Box mb={2} display="flex" alignItems="center" gap={2}>
+                <label style={{ color: '#ffffff', fontSize: '14px' }}>X-axis:</label>
+                <select
+                    value={xAxisMode}
+                    onChange={(e) => setXAxisMode(e.target.value as XAxisMode)}
+                    style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        background: '#2d3748',
+                        color: '#ffffff',
+                        border: '1px solid #4a5568'
+                    }}
+                >
+                    <option value="sprint">Sprint</option>
+                    <option value="creationDate">Creation date</option>
+                </select>
+            </Box>
             {chartOptions && (
                 <ErrorBoundary chartName="Effort Prediction">
                     <ECharts option={chartOptions} style={styleOptions} />
                 </ErrorBoundary>
             )}
-        </div>
+        </Box>
     );
 };

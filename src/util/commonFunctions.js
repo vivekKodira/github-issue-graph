@@ -124,6 +124,19 @@ export const fetchFromCache = async ({projectID, repository, cacheKey}) => {
 export const NO_SPRINT_LABEL = 'No Sprint';
 
 /**
+ * Returns creation month bucket (YYYY-MM) for a task, or null if no valid date.
+ * @param {object} task - Task with createdAt or created_at
+ * @returns {string|null} - e.g. '2024-01'
+ */
+export const getCreationMonth = (task) => {
+  const createdAt = task.createdAt ?? task.created_at;
+  if (!createdAt) return null;
+  const d = new Date(createdAt);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/**
  * Sorts sprint names numerically (e.g., Sprint-1, Sprint-2, Sprint-10, Sprint-11)
  * instead of alphabetically which would put Sprint-10 before Sprint-2
  * @param {string[]} sprints - Array of sprint names to sort

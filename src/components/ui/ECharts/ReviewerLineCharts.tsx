@@ -1,10 +1,11 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
 import { ErrorBoundary } from "./ErrorBoundary";
+import { AverageByPersonTable } from "./AverageByPersonTable";
 
 interface ReviewComment {
   body: string;
@@ -115,6 +116,7 @@ const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, on
   const [selectedReviewers, setSelectedReviewers] = useState<string[]>([]);
   const [availableReviewers, setAvailableReviewers] = useState<string[]>([]);
   const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
+  const [averages, setAverages] = useState<Record<string, number>>({});
 
   useEffect(() => {
     console.log('ReviewerLineCharts: flattenedData received:', flattenedData);
@@ -169,10 +171,9 @@ const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, on
     console.log('ReviewerLineCharts: Available reviewers:', reviewers);
     setAvailableReviewers(reviewers);
     
-    // Set first reviewer as default if none selected
+    // Preselect all reviewers if none selected
     if (reviewers.length > 0 && selectedReviewers.length === 0) {
-      console.log('ReviewerLineCharts: Setting default reviewer:', reviewers[0]);
-      setSelectedReviewers([reviewers[0]]);
+      setSelectedReviewers(reviewers);
     }
   }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
 
@@ -190,6 +191,10 @@ const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, on
           textStyle: { color: '#ffffff' }
         },
         tooltip: { trigger: "axis" },
+        legend: {
+          data: selectedSeries.map(s => String(s.name)),
+          textStyle: { color: '#ffffff' }
+        },
         xAxis: {
           type: "category",
           data: months,
@@ -203,6 +208,12 @@ const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, on
         series: selectedSeries,
       };
       setChartOptions(newChartOptions);
+      const avgs: Record<string, number> = {};
+      selectedSeries.forEach(series => {
+        const data = (series.data as number[]) || [];
+        avgs[String(series.name)] = data.length > 0 ? data.reduce((a, b) => a + b, 0) / data.length : 0;
+      });
+      setAverages(avgs);
     }
   }, [selectedReviewers, flattenedData]);
 
@@ -211,27 +222,35 @@ const ReviewerLineChartsContent = ({ flattenedData, styleOptions, searchTerm, on
   };
 
   return (
-    <Box>
-      <h3 style={{ 
-        color: '#ffffff', 
-        marginBottom: '16px',
-        fontSize: '18px',
-        fontWeight: 'bold'
-      }}>
-        Comments Given by Reviewers
-      </h3>
-      <ChartDropdown
-        title="Select reviewer"
-        options={availableReviewers}
-        selectedValues={selectedReviewers}
-        onSelectionChange={handleReviewerChange}
-        multiple={false}
-        placeholder="Select a reviewer"
-      />
-      <Box w="100%" h="350px">
-        <ECharts option={chartOptions} style={styleOptions} />
+    <HStack align="flex-start">
+      <Box flex={1}>
+        <h3 style={{ 
+          color: '#ffffff', 
+          marginBottom: '16px',
+          fontSize: '18px',
+          fontWeight: 'bold'
+        }}>
+          Comments Given by Reviewers
+        </h3>
+        <ChartDropdown
+          title="Select reviewers"
+          options={availableReviewers}
+          selectedValues={selectedReviewers}
+          onSelectionChange={handleReviewerChange}
+          multiple
+          placeholder="Select reviewers"
+        />
+        <Box w="100%" h="350px">
+          <ECharts option={chartOptions} style={styleOptions} />
+        </Box>
       </Box>
-    </Box>
+      <AverageByPersonTable
+        personLabel="Reviewer"
+        valueLabel="Avg Comments"
+        averages={averages}
+        title="Comments Given by Reviewers"
+      />
+    </HStack>
   );
 };
 

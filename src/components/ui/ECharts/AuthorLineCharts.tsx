@@ -1,10 +1,11 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import type { EChartsOption, LineSeriesOption } from 'echarts';
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
 import { ErrorBoundary } from "./ErrorBoundary";
+import { AverageByPersonTable } from "./AverageByPersonTable";
 
 interface ReviewComment {
   body: string;
@@ -125,6 +126,7 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [availableAuthors, setAvailableAuthors] = useState<string[]>([]);
   const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
+  const [averages, setAverages] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!flattenedData?.length) {
@@ -186,9 +188,9 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
     const authors = filteredAuthorSeries.map(series => String(series.name));
     setAvailableAuthors(authors);
     
-    // Set first author as default if none selected
+    // Preselect all authors if none selected
     if (authors.length > 0 && selectedAuthors.length === 0) {
-      setSelectedAuthors([authors[0]]);
+      setSelectedAuthors(authors);
     }
   }, [flattenedData, searchTerm, onInsightsGenerated, previousInsights]);
 
@@ -206,6 +208,10 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
           textStyle: { color: '#ffffff' }
         },
         tooltip: { trigger: "axis" },
+        legend: {
+          data: selectedSeries.map(s => String(s.name)),
+          textStyle: { color: '#ffffff' }
+        },
         xAxis: {
           type: "category",
           data: months,
@@ -219,6 +225,12 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
         series: selectedSeries,
       };
       setChartOptions(newChartOptions);
+      const avgs: Record<string, number> = {};
+      selectedSeries.forEach(series => {
+        const data = (series.data as number[]) || [];
+        avgs[String(series.name)] = data.length > 0 ? data.reduce((a, b) => a + b, 0) / data.length : 0;
+      });
+      setAverages(avgs);
     }
   }, [selectedAuthors, flattenedData]);
 
@@ -227,29 +239,37 @@ export const AuthorLineCharts = ({ flattenedData, styleOptions, searchTerm, onIn
   };
 
   return (
-    <Box>
-      <h3 style={{ 
-        color: '#ffffff', 
-        marginTop: '32px',
-        marginBottom: '16px',
-        fontSize: '18px',
-        fontWeight: 'bold'
-      }}>
-        Comments Received by Authors
-      </h3>
-      <ChartDropdown
-        title="Select author"
-        options={availableAuthors}
-        selectedValues={selectedAuthors}
-        onSelectionChange={handleAuthorChange}
-        multiple={false}
-        placeholder="Select an author"
-      />
-      <Box w="100%" h="350px">
-        <ErrorBoundary chartName="Author Line">
-          <ECharts option={chartOptions} style={styleOptions} />
-        </ErrorBoundary>
+    <HStack align="flex-start">
+      <Box flex={1}>
+        <h3 style={{ 
+          color: '#ffffff', 
+          marginTop: '32px',
+          marginBottom: '16px',
+          fontSize: '18px',
+          fontWeight: 'bold'
+        }}>
+          Comments Received by Authors
+        </h3>
+        <ChartDropdown
+          title="Select authors"
+          options={availableAuthors}
+          selectedValues={selectedAuthors}
+          onSelectionChange={handleAuthorChange}
+          multiple
+          placeholder="Select authors"
+        />
+        <Box w="100%" h="350px">
+          <ErrorBoundary chartName="Author Line">
+            <ECharts option={chartOptions} style={styleOptions} />
+          </ErrorBoundary>
+        </Box>
       </Box>
-    </Box>
+      <AverageByPersonTable
+        personLabel="Author"
+        valueLabel="Avg Comments"
+        averages={averages}
+        title="Comments Received by Authors"
+      />
+    </HStack>
   );
 }; 
