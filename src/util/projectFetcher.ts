@@ -2,6 +2,7 @@ import { toaster } from "@/components/ui/toaster"
 import { fetchFromCache, updateLocalCache } from "./commonFunctions.js";
 import issueFetcher from "./issueFetcher.js";
 import { convertGraphQLFormat, TaskFormat } from "./taskConverter.js";
+import { appendRenderLog } from "./renderDebugLog";
 
 // Debug flag - controlled by localStorage
 // To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
@@ -19,6 +20,9 @@ const debugLogGraphQLResponse = (item: any) => {
 };
 
 const GITHUB_API_URL = "https://api.github.com/graphql";
+
+/** Yield to main thread between paginated requests to avoid browser throttling/abort when devtools is closed. */
+const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 50));
 
 import {query} from "./github-project-status-query.js";
 
@@ -56,8 +60,12 @@ async function fetchAllProjectTasks(projectId: string, githubToken: string): Pro
     const tasks: ProjectItem[] = [];
     let hasNextPage = true;
     let endCursor: string | null = null;
+    let page = 0;
 
     while (hasNextPage) {
+        await yieldToMain();
+        page += 1;
+        appendRenderLog(`[project] page ${page} start`);
         const variables = { projectId, after: endCursor };
         const body = JSON.stringify({ query, variables });
 
@@ -97,7 +105,10 @@ async function fetchAllProjectTasks(projectId: string, githubToken: string): Pro
 
             hasNextPage = items.pageInfo.hasNextPage;
             endCursor = items.pageInfo.endCursor;
-        } catch (error) {
+            appendRenderLog(`[project] page ${page} ok (${items.nodes.length} items)`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            appendRenderLog(`[project] page ${page} error: ${msg}`);
             console.error("Error fetching project tasks:", error);
             throw error;
         }

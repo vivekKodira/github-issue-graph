@@ -16,6 +16,7 @@ import {
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { toaster } from "@/components/ui/toaster";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { DateRangeFilterStrip } from "./DateRangeFilterStrip";
 
 interface ReviewComment {
     body: string;
@@ -155,9 +156,16 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
     const [lastOpenaiApiKey, setLastOpenaiApiKey] = useState<string>('');
     const processingRef = useRef(false);
     const pageSize = 10;
+    const [dateFilteredData, setDateFilteredData] = useState<PullRequest[]>([]);
+
+    const handleFilteredData = useCallback((filtered: unknown[]) => {
+        setDateFilteredData(filtered as PullRequest[]);
+    }, []);
+
+    const dataToUse = dateFilteredData.length > 0 ? dateFilteredData : (prs ?? []);
 
     const processSentenceCloud = useCallback(async () => {
-        if (!prs?.length) return;
+        if (!dataToUse?.length) return;
 
         // Prevent concurrent processing
         if (processingRef.current) {
@@ -167,7 +175,7 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
 
         // Create a unique identifier for the current PRs state and API key
         const prsId = JSON.stringify({
-            prs: prs.map(pr => pr.reviewComments.map(c => c.body)),
+            prs: dataToUse.map(pr => pr.reviewComments.map(c => c.body)),
             apiKey: openaiApiKey
         });
         
@@ -177,13 +185,13 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
             return;
         }
         
-        console.log('Starting review sentence processing with PRs:', prs.length);
+        console.log('Starting review sentence processing with PRs:', dataToUse.length);
         processingRef.current = true;
         setIsLoading(true);
         
         try {
             // Extract all sentences from review comments
-            const allSentences = prs
+            const allSentences = dataToUse
                 .flatMap(pr => pr.reviewComments)
                 .flatMap(comment => extractSentences(comment.body));
 
@@ -285,18 +293,18 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
             processingRef.current = false;
             setIsLoading(false);
         }
-    }, [prs, openaiApiKey, processedPrs, lastOpenaiApiKey]);
+    }, [dataToUse, openaiApiKey, processedPrs, lastOpenaiApiKey]);
 
     // Use a ref to track if we've mounted
     const mountedRef = useRef(false);
     const lastProcessedRef = useRef<string>('');
 
     useEffect(() => {
-        if (!prs?.length) return;
+        if (!dataToUse?.length) return;
 
         // Create a unique identifier for the current state
         const currentStateId = JSON.stringify({
-            prs: prs.map(pr => pr.reviewComments.map(c => c.body)),
+            prs: dataToUse.map(pr => pr.reviewComments.map(c => c.body)),
             apiKey: openaiApiKey
         });
 
@@ -314,7 +322,7 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
         }
 
         mountedRef.current = true;
-    }, [prs, openaiApiKey]);
+    }, [dataToUse, openaiApiKey]);
 
     const visibleSentences = sentenceFrequencies.filter(item => !item.isFiltered);
     const paginatedData = visibleSentences.slice(
@@ -326,11 +334,23 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
         setCurrentPage(details.page);
     };
 
+    const chartHeight = 500;
     return (
-        <HStack gap={4} align="stretch" w="full">
-            <Box w="80%">
+        <VStack align="stretch" w="full" gap={0}>
+            {prs?.length ? (
+                <Box flexShrink={0} width="100%" marginBottom={4}>
+                    <DateRangeFilterStrip
+                        data={prs as unknown as Record<string, unknown>[]}
+                        dateField="createdAt"
+                        onFilteredData={handleFilteredData as (filtered: Record<string, unknown>[]) => void}
+                        styleOptions={styleOptions}
+                    />
+                </Box>
+            ) : null}
+            <HStack gap={4} align="stretch" w="full" flex={1} minHeight={0}>
+            <Box w="80%" minWidth={0} height={`${chartHeight}px`} minHeight={`${chartHeight}px`} overflow="hidden" flexShrink={0}>
                 {isLoading ? (
-                    <Center h="500px">
+                    <Center h="100%">
                         <VStack>
                             <Spinner size="xl" />
                             <Text mt={4}>Processing review sentences{openaiApiKey ? ' with AI' : ''}...</Text>
@@ -338,10 +358,10 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
                     </Center>
                 ) : chartOptions ? (
                     <ErrorBoundary chartName="Review Sentence Cloud">
-                        <ECharts option={chartOptions} style={styleOptions} />
+                        <ECharts option={chartOptions} style={{ width: '100%', height: chartHeight }} />
                     </ErrorBoundary>
                 ) : (
-                    <Center h="500px">
+                    <Center h="100%">
                         <Text color="gray.500">
                             No repeating review sentences found.
                         </Text>
@@ -425,5 +445,6 @@ export const ReviewWordCloudChart = ({ prs, styleOptions, openaiApiKey }: Review
                 </Box>
             )}
         </HStack>
+        </VStack>
     );
 }; 

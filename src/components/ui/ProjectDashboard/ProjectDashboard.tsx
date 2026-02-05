@@ -36,6 +36,8 @@ import { Insights } from "../ECharts/Insights";
 import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
 import { IssueAnalysisDashboardV2 } from "../ECharts/IssueAnalysisDashboardV2";
 import { RCAWordCloudChart } from "../ECharts/RCAWordCloudChart";
+import { DateRangeFilterStrip } from "../ECharts/DateRangeFilterStrip";
+import { appendRenderLog, getRenderLog } from "@/util/renderDebugLog";
 
 // Debug flag - controlled by localStorage
 // To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
@@ -123,6 +125,21 @@ export const ProjectDashboard = ({
   const [plannedTaskCompletionData, setPlannedTaskCompletionData] = useState(0);
   const [overallTaskCompletionData, setOverallTaskCompletionData] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
+  const [overviewDateFilteredData, setOverviewDateFilteredData] = useState([]);
+
+  const handleOverviewFilteredData = useCallback((filtered: unknown[]) => {
+    setOverviewDateFilteredData(filtered as never[]);
+  }, []);
+
+  const overviewDataToUse = overviewDateFilteredData.length > 0 ? overviewDateFilteredData : (flattenedData ?? []);
+
+  const overviewCompletionMetrics = useMemo(() => {
+    if (!overviewDataToUse?.length) return { planned: -1, overall: -1 };
+    return {
+      planned: fetchPlannedTaskCompletedData(overviewDataToUse, projectKeys),
+      overall: fetchoverAllCompletedData(overviewDataToUse, plannedEffortForProject, projectKeys),
+    };
+  }, [overviewDataToUse, projectKeys, plannedEffortForProject]);
 
   const styleOptions = useMemo(() => ({
     width: "100%",
@@ -136,6 +153,7 @@ export const ProjectDashboard = ({
     }
 
     setLoading(true);
+    appendRenderLog("Render started");
     try {
       // Clear insights before fetching new data
       setInsights([]);
@@ -184,11 +202,19 @@ export const ProjectDashboard = ({
         setPRs(fetchedPRs);
       }
     } catch (error) {
+      const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      appendRenderLog(`Render error: ${msg}`);
       console.error('Error fetching data:', error);
     } finally {
+      appendRenderLog("Render finished");
       setLoading(false);
     }
   };
+
+  const handleViewDebugLog = useCallback(() => {
+    const log = getRenderLog();
+    alert(log || "(empty)\n\nYou can also run in console:\nlocalStorage.getItem('github-issue-graph-render-log')");
+  }, []);
 
   // Subscribe to RxDB data changes
   useEffect(() => {
@@ -303,6 +329,13 @@ export const ProjectDashboard = ({
           >
             Clear Database
           </Button>
+          <Button
+            variant="outline"
+            onClick={handleViewDebugLog}
+            title="View Render debug log (also in localStorage key: github-issue-graph-render-log)"
+          >
+            View debug log
+          </Button>
         </Box>
       </Box>
 
@@ -319,29 +352,39 @@ export const ProjectDashboard = ({
 
             {/* Project Overview Tab */}
             <Tabs.Content value="overview">
-              <Box p={6} borderRadius="lg" borderWidth="1px">
+              <Box p={6} borderRadius="lg" borderWidth="1px" display="flex" flexDirection="column" width="100%">
+                {flattenedData?.length ? (
+                  <Box flexShrink={0} width="100%" marginBottom={4}>
+                    <DateRangeFilterStrip
+                      data={flattenedData as Record<string, unknown>[]}
+                      dateField="createdAt"
+                      onFilteredData={handleOverviewFilteredData as (filtered: Record<string, unknown>[]) => void}
+                      styleOptions={styleOptions}
+                    />
+                  </Box>
+                ) : null}
                 <SimpleGrid columns={{ base: 1, md: 3 }} gap={6}>
                   <Box>
                     <CompletionChart
                       title="Planned Task Completion Count"
-                      data={fetchPlannedTaskCompletedCount(flattenedData)}
+                      data={overviewDataToUse?.length ? fetchPlannedTaskCompletedCount(overviewDataToUse) : 0}
                       styleOptions={styleOptions}
                     />
                   </Box>
-                  {plannedTaskCompletionData !== -1 && (
+                  {overviewDataToUse?.length && overviewCompletionMetrics.planned !== -1 && (
                     <Box>
                       <CompletionChart
                         title="Planned Task Completion Effort"
-                        data={plannedTaskCompletionData}
+                        data={overviewCompletionMetrics.planned}
                         styleOptions={styleOptions}
                       />
                     </Box>
                   )}
-                  {overallTaskCompletionData !== -1 && (
+                  {overviewDataToUse?.length && overviewCompletionMetrics.overall !== -1 && (
                     <Box>
                       <CompletionChart
                         title="Overall Task Completion"
-                        data={overallTaskCompletionData}
+                        data={overviewCompletionMetrics.overall}
                         styleOptions={styleOptions}
                       />
                     </Box>
