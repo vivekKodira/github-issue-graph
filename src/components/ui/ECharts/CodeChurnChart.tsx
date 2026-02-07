@@ -1,12 +1,21 @@
 import { ECharts } from "./ECharts";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Box } from "@chakra-ui/react";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { DateRangeFilterStrip } from "./DateRangeFilterStrip";
 
 const CodeChurnChartContent = ({ prs, styleOptions }) => {
     const [chartOptions, setChartOptions] = useState(null);
+    const [dateFilteredData, setDateFilteredData] = useState([]);
+
+    const handleFilteredData = useCallback((filtered: unknown[]) => {
+        setDateFilteredData(filtered as typeof prs);
+    }, []);
+
+    const dataToUse = dateFilteredData.length > 0 ? dateFilteredData : (prs ?? []);
 
     useEffect(() => {
-        if (!prs?.length) return;
+        if (!dataToUse?.length) return;
 
         // Helper function to get the month period
         const getMonthPeriod = (date) => {
@@ -14,7 +23,7 @@ const CodeChurnChartContent = ({ prs, styleOptions }) => {
         };
 
         // Group PRs by months and calculate churn
-        const churnData = prs.reduce((acc, pr) => {
+        const churnData = dataToUse.reduce((acc, pr) => {
             const period = getMonthPeriod(new Date(pr.createdAt));
             if (!acc[period]) {
                 acc[period] = {
@@ -134,14 +143,27 @@ const CodeChurnChartContent = ({ prs, styleOptions }) => {
         };
 
         setChartOptions(options);
-    }, [prs]);
+    }, [dataToUse]);
 
+    const chartHeight = 350;
     return (
-        <div>
+        <Box display="flex" flexDirection="column" width="100%">
+            {prs?.length ? (
+                <Box flexShrink={0} width="100%" marginBottom={4}>
+                    <DateRangeFilterStrip
+                        data={prs as unknown as Record<string, unknown>[]}
+                        dateField="createdAt"
+                        onFilteredData={handleFilteredData as (filtered: Record<string, unknown>[]) => void}
+                        styleOptions={styleOptions}
+                    />
+                </Box>
+            ) : null}
             {chartOptions && (
-                <ECharts option={chartOptions} style={styleOptions} />
+                <Box width="100%" height={`${chartHeight}px`} minHeight={`${chartHeight}px`} overflow="hidden" flexShrink={0}>
+                    <ECharts option={chartOptions} style={{ width: '100%', height: chartHeight }} />
+                </Box>
             )}
-        </div>
+        </Box>
     );
 };
 

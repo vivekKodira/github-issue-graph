@@ -2,14 +2,15 @@ import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
-import { Box, Table, Stack } from "@chakra-ui/react";
+import { Box, Table, Stack, HStack } from "@chakra-ui/react";
 import { LuChevronDown, LuX } from "react-icons/lu";
 
-import { sortSprintsNumerically } from '@/util/commonFunctions';
+import { sortSprintsNumerically, NO_SPRINT_LABEL, getCreationMonth } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ChartDropdown } from './ChartDropdown';
 import { TaskFormat } from '@/util/taskConverter';
 import { ErrorBoundary } from "./ErrorBoundary";
+import { AverageByPersonTable } from "./AverageByPersonTable";
 
 interface AssigneeData {
   assignee: string;
@@ -55,19 +56,15 @@ export const createLineChartData = (tasks, projectKeys) => {
     }
   });
 
-  // Second pass: process only valid tasks for chart data
+  // Second pass: process Done tasks (include no-sprint as NO_SPRINT_LABEL)
   tasks.forEach((task) => {
     if (task.Status !== "Done") {
       return; // Skip incomplete tasks
     }
 
     const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
-    if (!sprint) {
-      return; // Skip tasks with no sprint
-    }
-    
-    // Normalize sprint format to remove extra spaces
-    const normalizedSprint = sprint.replace(/\s+/g, ' ').trim();
+    const normalizedSprint = (sprint && sprint.replace(/\s+/g, ' ').trim()) || NO_SPRINT_LABEL;
+    allSprints.add(normalizedSprint);
 
     // Get task weight based on actual days or estimate days
     const actualDays = task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value];
@@ -95,9 +92,11 @@ export const createLineChartData = (tasks, projectKeys) => {
     });
   });
 
-  // Sort sprints numerically
-  const sprints = sortSprintsNumerically(Object.keys(sprintData));
-  const allSprintsSorted = sortSprintsNumerically(Array.from(allSprints));
+  // Sort sprints numerically with NO_SPRINT_LABEL last
+  const sprints = Object.keys(sprintData);
+  const namedSprints = Array.from(allSprints).filter(s => s !== NO_SPRINT_LABEL);
+  sortSprintsNumerically(namedSprints);
+  const allSprintsSorted = allSprints.has(NO_SPRINT_LABEL) ? [...namedSprints, NO_SPRINT_LABEL] : namedSprints;
   const assignees = Object.keys(assigneeData);
 
   // Create series data for each assignee with all sprints included
@@ -125,6 +124,48 @@ export const createLineChartData = (tasks, projectKeys) => {
   };
 };
 
+/** Same shape as createLineChartData but buckets by creation month (YYYY-MM). */
+export const createLineChartDataByCreationDate = (tasks, projectKeys) => {
+  const monthData = {};
+  const allMonths = new Set();
+
+  tasks.forEach((task) => {
+    if (task.Status !== "Done") return;
+    const month = getCreationMonth(task);
+    if (!month) return;
+    const taskAssignees = task.assignees && task.assignees.length > 0 ? task.assignees : null;
+    if (!taskAssignees) return;
+
+    allMonths.add(month);
+    if (!monthData[month]) monthData[month] = {};
+    const actualDays = task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value];
+    const estimateDays = task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value];
+    const weight = actualDays || estimateDays || 1;
+
+    taskAssignees.forEach((assignee) => {
+      if (!monthData[month][assignee]) monthData[month][assignee] = 0;
+      monthData[month][assignee] += weight;
+    });
+  });
+
+  const assignees = [...new Set(Object.values(monthData).flatMap(m => Object.keys(m)))];
+  const sortedMonths = Array.from(allMonths).sort();
+  const assigneeSeries = assignees.map((assignee) => ({
+    name: assignee,
+    type: "line",
+    data: sortedMonths.map((month) => monthData[month]?.[assignee] || 0),
+  }));
+
+  return {
+    sprints: sortedMonths,
+    allSprints: sortedMonths,
+    assigneeSeries,
+    sprintStats: { totalTasks: tasks.length, doneTasks: 0, tasksWithSprint: 0, tasksWithAssignees: 0, processedTasks: 0 }
+  };
+};
+
+type XAxisMode = 'sprint' | 'creationDate';
+
 export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, onInsightsGenerated }) => {
   const { projectKeys } = useProjectKeys();
   const [chartOptionsArray, setChartOptionsArray] = useState([]);
@@ -135,6 +176,8 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
   const [isTableVisible, setIsTableVisible] = useState<Record<string, boolean>>({});
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [availableAssignees, setAvailableAssignees] = useState<string[]>([]);
+  const [xAxisMode, setXAxisMode] = useState<XAxisMode>('sprint');
+  const [averages, setAverages] = useState<Record<string, number>>({});
   const pageSize = 10;
 
   useEffect(() => {
@@ -147,8 +190,10 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
       return;
     }
 
-
-    const { sprints, allSprints, assigneeSeries, sprintStats } = createLineChartData(flattenedData, projectKeys);
+    const chartData = xAxisMode === 'creationDate'
+      ? createLineChartDataByCreationDate(flattenedData, projectKeys)
+      : createLineChartData(flattenedData, projectKeys);
+    const { sprints, allSprints, assigneeSeries, sprintStats } = chartData;
     
     // Log additional debugging information
     if (allSprints.length > sprints.length) {
@@ -240,6 +285,13 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
 
     setTableData(assigneeTableData);
 
+    const avgs = {};
+    filteredAssigneeSeries.forEach(series => {
+      const data = series.data || [];
+      avgs[series.name] = data.length > 0 ? data.reduce((a, b) => a + b, 0) / data.length : 0;
+    });
+    setAverages(avgs);
+
     // Create a single chart with all selected assignees
     const singleChart = {
       title: {
@@ -249,6 +301,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
           color: '#ffffff'
         }
       },
+      grid: { left: '10%', right: '10%', top: '15%', bottom: '18%', containLabel: true },
       tooltip: {
         trigger: "axis",
       },
@@ -266,11 +319,15 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
         type: "value",
         name: "Task Value",
       },
+      dataZoom: [
+        { type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 100, bottom: '5%', height: 20, borderColor: '#ccc', textStyle: { color: '#ffffff' }, handleStyle: { color: '#999' } },
+        { type: 'inside', xAxisIndex: 0, start: 0, end: 100 }
+      ],
       series: filteredAssigneeSeries,
     };
 
     setChartOptionsArray([singleChart]);
-  }, [flattenedData, projectKeys, searchTerm, onInsightsGenerated, previousInsights, selectedAssignees]);
+  }, [flattenedData, projectKeys, searchTerm, onInsightsGenerated, previousInsights, selectedAssignees, xAxisMode]);
 
   const handlePageChange = (assignee: string, page: number) => {
     setCurrentPages(prev => ({ ...prev, [assignee]: page }));
@@ -293,10 +350,28 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
 
   return (
     <Stack gap={4}>
-      <h3 style={{ color: '#ffffff', marginBottom: '0', fontSize: '18px', fontWeight: 'bold' }}>
-        Tasks Value per Sprint
-      </h3>
-      {/* Assignee Selection Dropdown */}
+      <Box display="flex" flexWrap="wrap" alignItems="center" gap={4} position="relative" zIndex={10}>
+        <h3 style={{ color: '#ffffff', marginBottom: '0', fontSize: '18px', fontWeight: 'bold' }}>
+          Tasks Value per {xAxisMode === 'creationDate' ? 'Creation Date' : 'Sprint'}
+        </h3>
+        <Box display="flex" alignItems="center" gap={2}>
+          <label style={{ color: '#ffffff', fontSize: '14px' }}>X-axis:</label>
+          <select
+            value={xAxisMode}
+            onChange={(e) => setXAxisMode(e.target.value as XAxisMode)}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              background: '#2d3748',
+              color: '#ffffff',
+              border: '1px solid #4a5568'
+            }}
+          >
+            <option value="sprint">Sprint</option>
+            <option value="creationDate">Creation date</option>
+          </select>
+        </Box>
+      </Box>
       <ChartDropdown
         title="Select assignees"
         options={availableAssignees}
@@ -310,7 +385,8 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
 
       {/* Single Chart with Tables */}
       {chartOptionsArray.length > 0 && (
-        <Box position="relative" style={{ overflow: 'hidden' }}>
+        <HStack align="flex-start" position="relative" style={{ overflow: 'hidden' }}>
+          <Box flex={1} position="relative">
           {/* Backdrop when any drawer is open */}
           {Object.values(isTableVisible).some(isVisible => isVisible) && (
             <div
@@ -400,13 +476,18 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
             const selectedSprint = selectedSprints[assigneeData.assignee] || 'all';
             const isVisible = isTableVisible[assigneeData.assignee] || false;
             
-            // Filter tasks by selected sprint
-            const filteredTasks = selectedSprint === 'all' 
-              ? assigneeData.tasks 
-              : assigneeData.tasks.filter(task => task[PROJECT_KEYS.SPRINT] === selectedSprint);
+            // Filter tasks by selected sprint (No Sprint = tasks with no sprint value)
+            const filteredTasks = selectedSprint === 'all'
+              ? assigneeData.tasks
+              : selectedSprint === NO_SPRINT_LABEL
+                ? assigneeData.tasks.filter(task => !task[PROJECT_KEYS.SPRINT])
+                : assigneeData.tasks.filter(task => task[PROJECT_KEYS.SPRINT] === selectedSprint);
 
-            // Get unique sprints for the filter dropdown
-            const uniqueSprints = [...new Set(assigneeData.tasks.map(task => task[PROJECT_KEYS.SPRINT]))].sort();
+            // Get unique sprints for the filter dropdown (include No Sprint last when present)
+            const sprintValues = assigneeData.tasks.map(task => task[PROJECT_KEYS.SPRINT] ?? NO_SPRINT_LABEL);
+            const uniqueSprintsSet = new Set(sprintValues);
+            const uniqueSprintsNamed = Array.from(uniqueSprintsSet).filter(s => s !== NO_SPRINT_LABEL).sort();
+            const uniqueSprints = uniqueSprintsSet.has(NO_SPRINT_LABEL) ? [...uniqueSprintsNamed, NO_SPRINT_LABEL] : uniqueSprintsNamed;
 
             // Calculate pagination
             const totalPages = Math.ceil(filteredTasks.length / pageSize);
@@ -513,7 +594,7 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
                               {task.title}
                             </a>
                           </Table.Cell>
-                          <Table.Cell style={{ color: '#ffffff', borderBottom: '1px solid #4a5568' }}>{task[PROJECT_KEYS.SPRINT]}</Table.Cell>
+                          <Table.Cell style={{ color: '#ffffff', borderBottom: '1px solid #4a5568' }}>{task[PROJECT_KEYS.SPRINT] ?? NO_SPRINT_LABEL}</Table.Cell>
                           <Table.Cell style={{ color: '#ffffff', borderBottom: '1px solid #4a5568' }}>{task[PROJECT_KEYS.ACTUAL_DAYS]}</Table.Cell>
                         </Table.Row>
                       ))}
@@ -552,7 +633,14 @@ export const AssigneeLineCharts = ({ flattenedData, styleOptions, searchTerm, on
               </Box>
             );
           })}
-        </Box>
+          </Box>
+          <AverageByPersonTable
+            personLabel="Assignee"
+            valueLabel="Avg Task Value"
+            averages={averages}
+            title={`Tasks Value per ${xAxisMode === 'creationDate' ? 'Creation Date' : 'Sprint'}`}
+          />
+        </HStack>
       )}
     </Stack>
   );

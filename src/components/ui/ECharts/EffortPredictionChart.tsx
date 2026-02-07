@@ -1,17 +1,19 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect } from "react";
+import { Box } from "@chakra-ui/react";
 import { PROJECT_KEYS } from '@/config/projectKeys';
 import { useProjectKeys } from '@/context/ProjectKeysContext';
 import { TaskFormat } from '@/util/taskConverter';
-import { sortSprintsNumerically } from '@/util/commonFunctions';
+import { sortSprintsNumerically, NO_SPRINT_LABEL, getCreationMonth } from '@/util/commonFunctions';
 import { Insight } from './types';
 import { ErrorBoundary } from "./ErrorBoundary";
+
+type XAxisMode = 'sprint' | 'creationDate';
 
 interface SprintData {
     sprint: string;
     tasks: TaskFormat[];
 }
-
 
 export const EffortPredictionChart = ({ 
     flattenedData, 
@@ -23,6 +25,7 @@ export const EffortPredictionChart = ({
     const { projectKeys } = useProjectKeys();
     const [chartOptions, setChartOptions] = useState(null);
     const [previousInsights, setPreviousInsights] = useState<Insight[]>([]);
+    const [xAxisMode, setXAxisMode] = useState<XAxisMode>('sprint');
 
     useEffect(() => {
         if (!flattenedData?.length || !plannedEffortForProject) {
@@ -33,16 +36,67 @@ export const EffortPredictionChart = ({
             return;
         }
 
+        if (xAxisMode === 'creationDate') {
+            const monthData: Record<string, TaskFormat[]> = {};
+            flattenedData.forEach(task => {
+                if (task.Status !== "Done") return;
+                const month = getCreationMonth(task);
+                if (!month) return;
+                if (!monthData[month]) monthData[month] = [];
+                monthData[month].push(task);
+            });
+            const sortedMonths = Object.keys(monthData).sort();
+            const effortByMonth = sortedMonths.map(m =>
+                monthData[m].reduce((sum, task) => sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0)
+            );
+            const options = {
+                title: { text: 'Effort Prediction (by Creation Date)', textStyle: { color: '#ffffff' } },
+                grid: { left: '10%', right: '10%', top: '15%', bottom: '18%', containLabel: true },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { textStyle: { color: '#ffffff' }, data: ['Actual Effort', 'Planned Effort'] },
+                xAxis: { type: 'category', data: sortedMonths },
+                yAxis: { type: 'value', name: 'Effort (days)' },
+                dataZoom: [
+                    { type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 100, bottom: '5%', height: 20, borderColor: '#ccc', textStyle: { color: '#ffffff' }, handleStyle: { color: '#999' } },
+                    { type: 'inside', xAxisIndex: 0, start: 0, end: 100 }
+                ],
+                series: [
+                    {
+                        name: 'Actual Effort',
+                        type: 'line',
+                        data: effortByMonth,
+                        markLine: {
+                            data: [
+                                {
+                                    name: 'Planned Effort',
+                                    yAxis: plannedEffortForProject,
+                                    lineStyle: { color: '#ff0000', type: 'solid' },
+                                    label: { formatter: 'Planned Effort: {c} days' }
+                                },
+                                ...(plannedEndDate ? [{
+                                    name: 'Planned End Date',
+                                    xAxis: new Date(plannedEndDate).toLocaleDateString(),
+                                    lineStyle: { color: '#ff0000', type: 'dashed' },
+                                    label: { formatter: 'Planned End Date' }
+                                }] : [])
+                            ]
+                        }
+                    }
+                ]
+            };
+            setChartOptions(options);
+            if (onInsightsGenerated) onInsightsGenerated([]);
+            return;
+        }
+
         const sprintData: Record<string, SprintData> = {};
         const sprints = new Set<string>();
 
-        // Process tasks by sprint
+        // Process tasks by sprint (include no-sprint as NO_SPRINT_LABEL; include in total for visibility)
         flattenedData.forEach(task => {
             if (task.Status !== "Done") return;
-            
-            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value];
-            if (!sprint) return;
-            
+
+            const sprint = task[projectKeys[PROJECT_KEYS.SPRINT].value] || NO_SPRINT_LABEL;
             sprints.add(sprint);
             if (!sprintData[sprint]) {
                 sprintData[sprint] = {
@@ -50,26 +104,30 @@ export const EffortPredictionChart = ({
                     tasks: []
                 };
             }
-            
             sprintData[sprint].tasks.push(task);
         });
 
-        const sortedSprints = sortSprintsNumerically(Array.from(sprints));
-        
-        // Calculate total completed effort and average effort per sprint
-        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) => 
-            sum + sprintData[sprint].tasks.reduce((sum, task) => 
+        const namedSprints = Array.from(sprints).filter(s => s !== NO_SPRINT_LABEL);
+        sortSprintsNumerically(namedSprints);
+        const sortedSprints = sprints.has(NO_SPRINT_LABEL) ? [...namedSprints, NO_SPRINT_LABEL] : namedSprints;
+
+        // Total completed effort includes No Sprint so those tasks are visible in the chart
+        const totalCompletedEffort = sortedSprints.reduce((sum, sprint) =>
+            sum + sprintData[sprint].tasks.reduce((sum, task) =>
                 sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0), 0);
-        const averageEffortPerSprint = sortedSprints.length > 0 ? totalCompletedEffort / sortedSprints.length : 0;
-        
+        // Average and prediction use only named sprints so velocity is meaningful
+        const totalCompletedEffortNamed = namedSprints.reduce((sum, sprint) =>
+            sum + sprintData[sprint].tasks.reduce((sum, task) =>
+                sum + Number(task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value]) || 0, 0), 0);
+        const averageEffortPerSprint = namedSprints.length > 0 ? totalCompletedEffortNamed / namedSprints.length : 0;
+
         // Calculate remaining effort
         const remainingEffort = plannedEffortForProject - totalCompletedEffort;
-        
-        // Calculate number of sprints needed based on average effort per sprint
-        // Handle edge cases where averageEffortPerSprint is 0 or NaN
+
+        // Calculate number of sprints needed based on average effort per named sprint
         const predictedSprints = averageEffortPerSprint > 0 ? Math.ceil(remainingEffort / averageEffortPerSprint) : 0;
-        const futureSprints = predictedSprints > 0 ? Array.from({ length: predictedSprints }, (_, i) => 
-            `Sprint ${sortedSprints.length + i + 1}`) : [];
+        const futureSprints = predictedSprints > 0 ? Array.from({ length: predictedSprints }, (_, i) =>
+            `Sprint ${namedSprints.length + i + 1}`) : [];
 
         // Generate insights
         const insights: Insight[] = [];
@@ -144,6 +202,7 @@ export const EffortPredictionChart = ({
                     color: '#ffffff'
                 }
             },
+            grid: { left: '10%', right: '10%', top: '15%', bottom: '18%', containLabel: true },
             tooltip: {
                 trigger: 'axis',
                 axisPointer: {
@@ -175,6 +234,10 @@ export const EffortPredictionChart = ({
                 type: 'value',
                 name: 'Effort (days)'
             },
+            dataZoom: [
+                { type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 100, bottom: '5%', height: 20, borderColor: '#ccc', textStyle: { color: '#ffffff' }, handleStyle: { color: '#999' } },
+                { type: 'inside', xAxisIndex: 0, start: 0, end: 100 }
+            ],
             series: [
                 {
                     name: 'Actual Effort',
@@ -235,15 +298,32 @@ export const EffortPredictionChart = ({
             onInsightsGenerated(insights);
             setPreviousInsights(insights);
         }
-    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights, plannedEffortForProject, plannedEndDate]);
+    }, [flattenedData, projectKeys, onInsightsGenerated, previousInsights, plannedEffortForProject, plannedEndDate, xAxisMode]);
 
     return (
-        <div>
+        <Box>
+            <Box mb={2} display="flex" alignItems="center" gap={2}>
+                <label style={{ color: '#ffffff', fontSize: '14px' }}>X-axis:</label>
+                <select
+                    value={xAxisMode}
+                    onChange={(e) => setXAxisMode(e.target.value as XAxisMode)}
+                    style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        background: '#2d3748',
+                        color: '#ffffff',
+                        border: '1px solid #4a5568'
+                    }}
+                >
+                    <option value="sprint">Sprint</option>
+                    <option value="creationDate">Creation date</option>
+                </select>
+            </Box>
             {chartOptions && (
                 <ErrorBoundary chartName="Effort Prediction">
                     <ECharts option={chartOptions} style={styleOptions} />
                 </ErrorBoundary>
             )}
-        </div>
+        </Box>
     );
 };

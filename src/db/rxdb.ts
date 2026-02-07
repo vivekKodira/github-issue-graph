@@ -165,6 +165,46 @@ const prSchema = {
   indexes: ['state', 'author', 'updatedAt']
 };
 
+// Cache schema for storing API response cache
+const cacheSchema = {
+  version: 2,
+  primaryKey: 'id',
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      maxLength: 500
+    },
+    cacheKey: {
+      type: 'string',
+      maxLength: 100
+    },
+    projectID: {
+      type: ['string', 'null']
+    },
+    repository: {
+      type: 'string',
+      maxLength: 200
+    },
+    data: {
+      anyOf: [
+        { type: 'object' },
+        { type: 'array' }
+      ]
+    },
+    lastUpdated: {
+      type: 'string',
+      maxLength: 100
+    },
+    version: {
+      type: 'string',
+      maxLength: 50
+    }
+  },
+  required: ['id', 'cacheKey', 'repository', 'data', 'lastUpdated', 'version'],
+  indexes: ['cacheKey', 'repository', 'lastUpdated']
+};
+
 export type TaskDocument = RxDocument<{
   id: string;
   title: string;
@@ -202,9 +242,22 @@ export type PRDocument = RxDocument<{
 export type TaskCollection = RxCollection<TaskDocument>;
 export type PRCollection = RxCollection<PRDocument>;
 
+export type CacheDocument = RxDocument<{
+  id: string;
+  cacheKey: string;
+  projectID?: string | null;
+  repository: string;
+  data: any;
+  lastUpdated: string;
+  version: string;
+}>;
+
+export type CacheCollection = RxCollection<CacheDocument>;
+
 export type GitHubIssueGraphCollections = {
   tasks: TaskCollection;
   prs: PRCollection;
+  cache: CacheCollection;
 };
 
 export type GitHubIssueGraphDatabase = RxDatabase<GitHubIssueGraphCollections>;
@@ -250,6 +303,19 @@ export async function getDatabase(): Promise<GitHubIssueGraphDatabase> {
         },
         prs: {
           schema: prSchema
+        },
+        cache: {
+          schema: cacheSchema,
+          migrationStrategies: {
+            // Migration from version 0 to 1: allow arrays in data field (no data changes needed)
+            1: function(oldDoc: any) {
+              return oldDoc; // No changes to document structure, only schema type constraint
+            },
+            // Migration from version 1 to 2: change data field from union type to anyOf (no data changes needed)
+            2: function(oldDoc: any) {
+              return oldDoc; // No changes to document structure, only schema validation method
+            }
+          }
         }
       });
 
@@ -274,6 +340,7 @@ export async function clearDatabase() {
   const db = await getDatabase();
   await db.tasks.find().remove();
   await db.prs.find().remove();
+  await db.cache.find().remove();
   console.log('Database cleared');
 }
 
@@ -287,6 +354,7 @@ export async function destroyDatabase() {
       const db = await dbPromise;
       await db.tasks.find().remove();
       await db.prs.find().remove();
+      await db.cache.find().remove();
       console.log('Database collections cleared');
     }
     

@@ -17,6 +17,7 @@ import {
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { toaster } from "@/components/ui/toaster";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { DateRangeFilterStrip } from "./DateRangeFilterStrip";
 
 interface Issue {
     Type?: string;
@@ -171,6 +172,7 @@ async function processSentencesWithAI(sentences: string[], openaiApiKey: string)
 
 export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWordCloudChartProps) => {
     const [chartOptions, setChartOptions] = useState(null);
+    const [pieChartOptions, setPieChartOptions] = useState(null);
     const [newFilterSentence, setNewFilterSentence] = useState('');
     const [sentenceFrequencies, setSentenceFrequencies] = useState<SentenceFrequency[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -179,9 +181,16 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
     const [lastOpenaiApiKey, setLastOpenaiApiKey] = useState<string>('');
     const processingRef = useRef(false);
     const pageSize = 10;
+    const [dateFilteredData, setDateFilteredData] = useState<Issue[]>([]);
+
+    const handleFilteredData = useCallback((filtered: unknown[]) => {
+        setDateFilteredData(filtered as Issue[]);
+    }, []);
+
+    const dataToUse = dateFilteredData.length > 0 ? dateFilteredData : (issues ?? []);
 
     const processSentenceCloud = useCallback(async () => {
-        if (!issues?.length) return;
+        if (!dataToUse?.length) return;
 
         if (processingRef.current) {
             console.log('Skipping - already processing');
@@ -190,7 +199,7 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
 
         // Create a unique identifier for the current state
         const issuesId = JSON.stringify({
-            issues: issues.filter(issue => {
+            issues: dataToUse.filter(issue => {
                 if (issue.Type?.toLowerCase() === 'bug') return true;
                 if (issue.labels?.some(label => label.name?.toLowerCase() === 'bug')) return true;
                 return false;
@@ -209,7 +218,7 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
         
         try {
             // Filter for Bug issues
-            const bugIssues = issues.filter(issue => {
+            const bugIssues = dataToUse.filter(issue => {
                 if (issue.Type?.toLowerCase() === 'bug') return true;
                 if (issue.labels?.some(label => label.name?.toLowerCase() === 'bug')) return true;
                 return false;
@@ -310,6 +319,66 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
             };
 
             setChartOptions(options);
+
+            // Top RCA patterns pie chart (top 10)
+            const pieData = frequencies
+                .filter(item => !item.isFiltered)
+                .slice(0, 10)
+                .map(item => ({
+                    name: item.sentence.length > 40 ? item.sentence.substring(0, 37) + '...' : item.sentence,
+                    value: item.count,
+                    fullText: item.sentence
+                }));
+            const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
+            setPieChartOptions(pieData.length ? {
+                title: {
+                    text: 'Top RCA Patterns',
+                    textStyle: {
+                        color: '#ffffff',
+                        fontFamily: 'system-ui',
+                        fontSize: 18,
+                        textBorderWidth: 0,
+                        textShadowBlur: 0
+                    }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: (params: { data: { fullText?: string; value: number } }) =>
+                        `${params.data.fullText ?? params.name}\nCount: ${params.data.value}`,
+                    textStyle: { fontFamily: 'system-ui', fontSize: 13 }
+                },
+                legend: {
+                    show: true,
+                    type: 'scroll',
+                    orient: 'vertical',
+                    right: 10,
+                    top: 'middle',
+                    data: pieData.map(d => d.name),
+                    formatter: (name: string) => {
+                        const item = pieData.find(d => d.name === name);
+                        const pct = item ? ((item.value / pieTotal) * 100).toFixed(1) : '0';
+                        return `${name} (${pct}%)`;
+                    },
+                    textStyle: {
+                        fontFamily: 'system-ui',
+                        fontSize: 13,
+                        color: '#e2e8f0',
+                        textBorderWidth: 0,
+                        textShadowBlur: 0
+                    }
+                },
+                series: [{
+                    type: 'pie',
+                    radius: '60%',
+                    center: ['40%', '50%'],
+                    data: pieData,
+                    label: { show: false },
+                    labelLine: { show: false },
+                    emphasis: {
+                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' }
+                    }
+                }]
+            } : null);
         } catch (error) {
             console.error('Error in processSentenceCloud:', error);
             toaster.create({
@@ -321,16 +390,16 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
             processingRef.current = false;
             setIsLoading(false);
         }
-    }, [issues, openaiApiKey, processedIssues, lastOpenaiApiKey]);
+    }, [dataToUse, openaiApiKey, processedIssues, lastOpenaiApiKey]);
 
     const mountedRef = useRef(false);
     const lastProcessedRef = useRef<string>('');
 
     useEffect(() => {
-        if (!issues?.length) return;
+        if (!dataToUse?.length) return;
 
         const currentStateId = JSON.stringify({
-            issues: issues.filter(issue => {
+            issues: dataToUse.filter(issue => {
                 if (issue.Type?.toLowerCase() === 'bug') return true;
                 if (issue.labels?.some(label => label.name?.toLowerCase() === 'bug')) return true;
                 return false;
@@ -350,7 +419,7 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
         }
 
         mountedRef.current = true;
-    }, [issues, openaiApiKey]);
+    }, [dataToUse, openaiApiKey]);
 
     const visibleSentences = sentenceFrequencies.filter(item => !item.isFiltered);
     const paginatedData = visibleSentences.slice(
@@ -362,11 +431,23 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
         setCurrentPage(details.page);
     };
 
+    const chartHeight = 500;
     return (
-        <HStack gap={4} align="stretch" w="full">
-            <Box w="80%">
+        <VStack align="stretch" w="full" gap={0}>
+            {issues?.length ? (
+                <Box flexShrink={0} width="100%" marginBottom={4}>
+                    <DateRangeFilterStrip
+                        data={issues as unknown as Record<string, unknown>[]}
+                        dateField="createdAt"
+                        onFilteredData={handleFilteredData as (filtered: Record<string, unknown>[]) => void}
+                        styleOptions={styleOptions}
+                    />
+                </Box>
+            ) : null}
+            <HStack gap={4} align="stretch" w="full" flex={1} minHeight={0}>
+            <Box w="80%" minWidth={0} height={`${chartHeight}px`} minHeight={`${chartHeight}px`} overflow="hidden" flexShrink={0}>
                 {isLoading ? (
-                    <Center h="500px">
+                    <Center h="100%">
                         <VStack>
                             <Spinner size="xl" />
                             <Text mt={4}>Processing RCA sentences{openaiApiKey ? ' with AI' : ''}...</Text>
@@ -374,10 +455,10 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
                     </Center>
                 ) : chartOptions ? (
                     <ErrorBoundary chartName="RCA Sentence Cloud">
-                        <ECharts option={chartOptions} style={styleOptions} />
+                        <ECharts option={chartOptions} style={{ width: '100%', height: chartHeight }} />
                     </ErrorBoundary>
                 ) : (
-                    <Center h="500px">
+                    <Center h="100%">
                         <Text color="gray.500">
                             No repeating RCA sentences found in Bug issues.
                         </Text>
@@ -461,5 +542,13 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
                 </Box>
             )}
         </HStack>
+            {!isLoading && pieChartOptions && (
+                <Box w="full" mt={4} height="420px" minHeight="420px">
+                    <ErrorBoundary chartName="RCA Patterns Pie">
+                        <ECharts option={pieChartOptions} style={{ width: '100%', height: 420 }} settings={{ notMerge: true }} />
+                    </ErrorBoundary>
+                </Box>
+            )}
+        </VStack>
     );
 };

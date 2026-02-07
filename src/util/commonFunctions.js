@@ -1,5 +1,6 @@
 import tasksSample from '../samples/tasks.json';
 import prsSample from '../samples/prs.json';
+import { getDatabase } from '../db/rxdb';
 
 const CACHE_VERSION = '1.0';
 const CACHE_TTL_HOURS = 1;
@@ -46,23 +47,31 @@ function getCacheName(cacheKey, repository, projectID) {
   return name;
 }
 
-export const updateLocalCache = ({projectID, repository, data, cacheKey}) => {
+export const updateLocalCache = async ({projectID, repository, data, cacheKey}) => {
   try {
-    const name = getCacheName(cacheKey, repository, projectID);
-    const localCache = {
+    const db = await getDatabase();
+    const id = getCacheName(cacheKey, repository, projectID);
+    const lastUpdated = new Date().toISOString();
+    
+    const cacheEntry = {
+      id: id,
+      cacheKey: cacheKey,
+      projectID: projectID || null,
+      repository: repository,
       data: data,
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: lastUpdated,
       version: CACHE_VERSION
     };
   
-    localStorage.setItem(name, JSON.stringify(localCache));
-    console.log(`Cache updated for key: ${name} at ${localCache.lastUpdated}`);
+    // Upsert the cache entry
+    await db.cache.upsert(cacheEntry);
+    console.log(`Cache updated for key: ${id} at ${lastUpdated}`);
   } catch(error) {
     console.error("Error storing into cache:", error);
   }
 }
 
-export const fetchFromCache = ({projectID, repository, cacheKey}) => {
+export const fetchFromCache = async ({projectID, repository, cacheKey}) => {
   // Check if we're in demo mode
   const isDemoMode = localStorage.getItem('demo_mode') === 'true';
   if (isDemoMode) {
@@ -74,41 +83,58 @@ export const fetchFromCache = ({projectID, repository, cacheKey}) => {
     }
   }
 
-  const name = getCacheName(cacheKey, repository, projectID);
-  let localIssuesCache;
+  const id = getCacheName(cacheKey, repository, projectID);
   
   try {
-    const cacheStr = localStorage.getItem(name);
-    if (!cacheStr) {
-      console.log(`No cache found for key: ${name}`);
+    const db = await getDatabase();
+    const cacheDoc = await db.cache.findOne(id).exec();
+    
+    if (!cacheDoc) {
+      console.log(`No cache found for key: ${id}`);
       return;
     }
     
-    localIssuesCache = JSON.parse(cacheStr);
-    console.log(`Found cache for ${name} with version ${localIssuesCache?.version} and lastUpdated ${localIssuesCache?.lastUpdated}`);
+    const cacheData = cacheDoc.toJSON();
+    console.log(`Found cache for ${id} with version ${cacheData?.version} and lastUpdated ${cacheData?.lastUpdated}`);
     
-    if (!localIssuesCache) {
-      console.log(`Cache invalid: null cache object for ${name}`);
+    if (!cacheData) {
+      console.log(`Cache invalid: null cache object for ${id}`);
       return;
     }
     
-    if (!localIssuesCache.data) {
-      console.log(`Cache invalid: missing data for ${name}`);
+    if (!cacheData.data) {
+      console.log(`Cache invalid: missing data for ${id}`);
       return;
     }
     
-    if (isCacheInvalid(localIssuesCache)) {
-      console.log(`Cache invalid: failed validation for ${name}`);
+    if (isCacheInvalid(cacheData)) {
+      console.log(`Cache invalid: failed validation for ${id}`);
       return;
     }
     
-    console.log(`Cache hit for key: ${name}`);
-    return localIssuesCache.data;
+    console.log(`Cache hit for key: ${id}`);
+    return cacheData.data;
   } catch (error) {
-    console.error(`Error fetching from cache for key ${name}:`, error);
+    console.error(`Error fetching from cache for key ${id}:`, error);
     return;
   }
 }
+
+/** Label for tasks that have no sprint assigned (shown as last x-axis value in sprint charts). */
+export const NO_SPRINT_LABEL = 'No Sprint';
+
+/**
+ * Returns creation month bucket (YYYY-MM) for a task, or null if no valid date.
+ * @param {object} task - Task with createdAt or created_at
+ * @returns {string|null} - e.g. '2024-01'
+ */
+export const getCreationMonth = (task) => {
+  const createdAt = task.createdAt ?? task.created_at;
+  if (!createdAt) return null;
+  const d = new Date(createdAt);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
 
 /**
  * Sorts sprint names numerically (e.g., Sprint-1, Sprint-2, Sprint-10, Sprint-11)

@@ -70,7 +70,7 @@ export default async function ({ repoOwner, repository, githubToken, projectID="
   });
 
   
-  let issueData = fetchFromCache({projectID, repository, cacheKey: "issues"});
+  let issueData = await fetchFromCache({projectID, repository, cacheKey: "issues"});
 
   if(issueData) {
     toaster.create({
@@ -84,7 +84,7 @@ export default async function ({ repoOwner, repository, githubToken, projectID="
   
   // Convert to standard format before caching
   const standardizedData = issueData.map(convertRestApiFormat);
-  updateLocalCache({projectID, repository, data:standardizedData, cacheKey: "issues"});
+  await updateLocalCache({projectID, repository, data:standardizedData, cacheKey: "issues"});
 
   return standardizedData;
 }

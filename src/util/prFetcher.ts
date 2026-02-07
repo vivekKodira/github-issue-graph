@@ -1,8 +1,12 @@
 import { toaster } from "@/components/ui/toaster";
 import { fetchFromCache, updateLocalCache } from "./commonFunctions.js";
 import { prQuery } from "./github-pr-query.js";
+import { appendRenderLog } from "./renderDebugLog";
 
 const GITHUB_API_URL = "https://api.github.com/graphql";
+
+/** Yield to main thread between paginated requests to avoid browser throttling/abort when devtools is closed. */
+const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 50));
 
 interface ReviewComment {
     body: string;
@@ -71,34 +75,52 @@ async function fetchAllPullRequests(owner: string, repo: string, githubToken: st
     let pullRequests: PullRequest[] = [];
     let hasNextPage = true;
     let endCursor: string | null = null;
+    let page = 0;
 
     while (hasNextPage) {
+        await yieldToMain();
+        page += 1;
+        appendRenderLog(`[pr] page ${page} start`);
         const variables = { owner, repo, after: endCursor };
         const body = JSON.stringify({ query: prQuery, variables });
 
-        const response = await fetch(GITHUB_API_URL, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${githubToken}`,
-                "Content-Type": "application/json"
-            },
-            body
-        });
+        try {
+            const response = await fetch(GITHUB_API_URL, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${githubToken}`,
+                    "Content-Type": "application/json"
+                },
+                body
+            });
 
-        const data: PRQueryResponse = await response.json();
+            if (!response.ok) {
+                const err = new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+                appendRenderLog(`[pr] page ${page} error: ${err.message}`);
+                throw err;
+            }
 
-        if (data.errors) {
-            console.error("GraphQL Errors:", data.errors);
-            return pullRequests;
+            const data: PRQueryResponse = await response.json();
+
+            if (data.errors) {
+                console.error("GraphQL Errors:", data.errors);
+                appendRenderLog(`[pr] page ${page} error: GraphQL ${JSON.stringify(data.errors)}`);
+                return pullRequests;
+            }
+
+            const prs = data.data?.repository.pullRequests;
+            if (!prs) break;
+
+            pullRequests = pullRequests.concat(prs.nodes);
+
+            hasNextPage = prs.pageInfo.hasNextPage;
+            endCursor = prs.pageInfo.endCursor;
+            appendRenderLog(`[pr] page ${page} ok (${prs.nodes.length} prs)`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            appendRenderLog(`[pr] page ${page} error: ${msg}`);
+            throw error;
         }
-
-        const prs = data.data?.repository.pullRequests;
-        if (!prs) break;
-
-        pullRequests = pullRequests.concat(prs.nodes);
-
-        hasNextPage = prs.pageInfo.hasNextPage;
-        endCursor = prs.pageInfo.endCursor;
     }
 
     return pullRequests;
@@ -148,7 +170,7 @@ interface FetchPRsParams {
 async function fetchPRs({ repoOwner, repository, githubToken }: FetchPRsParams) {
     try {
         const cacheKey = `prs`;
-        let prs = fetchFromCache({cacheKey, repository});
+        let prs = await fetchFromCache({cacheKey, repository});
         
         if (prs) {
             toaster.create({
@@ -164,7 +186,7 @@ async function fetchPRs({ repoOwner, repository, githubToken }: FetchPRsParams) 
             const rawPRs = await fetchAllPullRequests(repoOwner, repository, githubToken);
             prs = rawPRs.map(flattenPRResponse);
             
-            updateLocalCache({cacheKey, repository, data:prs});
+            await updateLocalCache({cacheKey, repository, data:prs});
         }
         
         return prs;

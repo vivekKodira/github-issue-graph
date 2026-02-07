@@ -1,8 +1,9 @@
 import { ECharts } from "./ECharts";
 import { useState, useEffect, useRef } from "react";
-import { Box, HStack, Table } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import { ChartDropdown } from "./ChartDropdown";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { AverageByPersonTable } from "./AverageByPersonTable";
 
 // Accepts: prs (array of PRs), styleOptions (for ECharts)
 const AuthorPRIntervalChartContent = ({ prs, styleOptions }) => {
@@ -187,25 +188,12 @@ const AuthorPRIntervalChartContent = ({ prs, styleOptions }) => {
           )}
         </Box>
       </Box>
-      <Box minW="220px" bg="#23272f" borderRadius="md" p={4}>
-        <h4 style={{ color: '#ffffff', marginBottom: '12px', fontSize: '16px', fontWeight: 'bold' }}>Average Interval (Weekdays)</h4>
-        <Table.Root w="full">
-          <Table.Header>
-            <Table.Row>
-              <Table.Cell fontWeight="bold">Author</Table.Cell>
-              <Table.Cell fontWeight="bold" textAlign="right">Avg Days</Table.Cell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {Object.entries(averages).map(([author, avg]) => (
-              <Table.Row key={author}>
-                <Table.Cell>{author}</Table.Cell>
-                <Table.Cell textAlign="right">{Number(avg).toFixed(2)}</Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
-      </Box>
+      <AverageByPersonTable
+        personLabel="Author"
+        valueLabel="Avg Days"
+        averages={averages}
+        title="Days Between PRs by Author"
+      />
     </HStack>
   );
 };
