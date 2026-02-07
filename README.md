@@ -127,6 +127,18 @@ If your repository doesn't use these custom fields, some charts and insights may
    npm run dev
    ```
 
+## Testing
+
+Run the test suite:
+```bash
+npm test
+```
+
+Run tests in watch mode (re-runs on file changes):
+```bash
+npm run test:watch
+```
+
 ## Debug Mode
 
 The application includes a debug mode for troubleshooting and data inspection. Debug mode is controlled via browser localStorage, so you can enable/disable it without code changes or rebuilding.
