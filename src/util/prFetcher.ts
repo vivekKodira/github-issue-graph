@@ -63,6 +63,7 @@ interface PRQueryResponse {
     data?: {
         repository: {
             pullRequests: {
+                totalCount: number;
                 nodes: PullRequest[];
                 pageInfo: PageInfo;
             };
@@ -71,11 +72,19 @@ interface PRQueryResponse {
     errors?: { message: string }[];
 }
 
-async function fetchAllPullRequests(owner: string, repo: string, githubToken: string): Promise<PullRequest[]> {
+type OnProgress = (fetched: number, total: number) => void;
+
+async function fetchAllPullRequests(
+    owner: string,
+    repo: string,
+    githubToken: string,
+    onProgress?: OnProgress
+): Promise<PullRequest[]> {
     let pullRequests: PullRequest[] = [];
     let hasNextPage = true;
     let endCursor: string | null = null;
     let page = 0;
+    let totalCount: number | null = null;
 
     while (hasNextPage) {
         await yieldToMain();
@@ -111,7 +120,9 @@ async function fetchAllPullRequests(owner: string, repo: string, githubToken: st
             const prs = data.data?.repository.pullRequests;
             if (!prs) break;
 
+            if (totalCount === null) totalCount = prs.totalCount;
             pullRequests = pullRequests.concat(prs.nodes);
+            onProgress?.(pullRequests.length, totalCount);
 
             hasNextPage = prs.pageInfo.hasNextPage;
             endCursor = prs.pageInfo.endCursor;
@@ -165,9 +176,10 @@ interface FetchPRsParams {
     repoOwner: string;
     repository: string;
     githubToken: string;
+    onProgress?: OnProgress;
 }
 
-async function fetchPRs({ repoOwner, repository, githubToken }: FetchPRsParams) {
+async function fetchPRs({ repoOwner, repository, githubToken, onProgress }: FetchPRsParams) {
     try {
         const cacheKey = `prs`;
         let prs = await fetchFromCache({cacheKey, repository});
@@ -183,7 +195,7 @@ async function fetchPRs({ repoOwner, repository, githubToken }: FetchPRsParams) 
                 type: "info",
             });
             
-            const rawPRs = await fetchAllPullRequests(repoOwner, repository, githubToken);
+            const rawPRs = await fetchAllPullRequests(repoOwner, repository, githubToken, onProgress);
             prs = rawPRs.map(flattenPRResponse);
             
             await updateLocalCache({cacheKey, repository, data:prs});
