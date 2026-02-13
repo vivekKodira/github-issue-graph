@@ -6,6 +6,7 @@ import {
   SimpleGrid,
   Tabs,
   Input,
+  Progress,
 } from "@chakra-ui/react";
 import fetchProjectDetails from "@/util/projectFetcher";
 import fetchPRs from "@/util/prFetcher";
@@ -126,6 +127,7 @@ export const ProjectDashboard = ({
   const [overallTaskCompletionData, setOverallTaskCompletionData] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
   const [overviewDateFilteredData, setOverviewDateFilteredData] = useState([]);
+  const [prProgress, setPrProgress] = useState<{ fetched: number; total: number } | null>(null);
 
   const handleOverviewFilteredData = useCallback((filtered: unknown[]) => {
     setOverviewDateFilteredData(filtered as never[]);
@@ -153,6 +155,7 @@ export const ProjectDashboard = ({
     }
 
     setLoading(true);
+    setPrProgress(null);
     appendRenderLog("Render started");
     try {
       // Clear insights before fetching new data
@@ -170,6 +173,7 @@ export const ProjectDashboard = ({
           repoOwner: repoOwner,
           repository: repository,
           githubToken: githubToken,
+          onProgress: (fetched, total) => setPrProgress({ fetched, total }),
         })
       ]);
 
@@ -208,6 +212,7 @@ export const ProjectDashboard = ({
     } finally {
       appendRenderLog("Render finished");
       setLoading(false);
+      setPrProgress(null);
     }
   };
 
@@ -310,6 +315,17 @@ export const ProjectDashboard = ({
         {!isDbReady && (
           <Box mb={3} p={2} borderRadius="md" bg="blue.50" color="blue.700" fontSize="sm">
             Initializing database...
+          </Box>
+        )}
+        {loading && prProgress && (
+          <Box mb={3} width="100%">
+            <Progress.Root value={prProgress.fetched} max={prProgress.total} min={0}>
+              <Progress.Track>
+                <Progress.Range />
+              </Progress.Track>
+              <Progress.Label>Fetching PRs</Progress.Label>
+              <Progress.ValueText />
+            </Progress.Root>
           </Box>
         )}
         <Box display="flex" gap={3}>
