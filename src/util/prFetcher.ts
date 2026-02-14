@@ -137,7 +137,7 @@ async function fetchAllPullRequests(
     return pullRequests;
 }
 
-const flattenPRResponse = (pr: PullRequest) => {
+export const flattenPRResponse = (pr: PullRequest) => {
     // Flatten all review comments into a single array
     const reviewComments = pr.reviews.nodes.flatMap(review => 
         review.comments.nodes.map(comment => ({

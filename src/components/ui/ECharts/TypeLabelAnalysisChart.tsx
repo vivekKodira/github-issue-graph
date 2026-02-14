@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Box, Stack, Text } from "@chakra-ui/react";
 import { ECharts } from "@/components/ui/ECharts/ECharts.js";
 import barChartTemplate from "./templates/barChartTemplate.js";
@@ -6,6 +6,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { useFilterableDimensions } from "./hooks/useFilterableDimensions";
 import { FilterPanel } from "./FilterPanel";
 import { DimensionPanel } from "./DimensionPanel";
+import { createChartData, createChartDataForField } from "@/util/chartDataGenerators/typeLabelAnalysisData";
 
 interface Issue {
   id: string;
@@ -28,62 +29,9 @@ interface TypeLabelAnalysisChartProps {
   styleOptions?: Record<string, unknown>;
 }
 
-interface ChartData {
-  categories: string[];
-  series: Array<{
-    name: string;
-    type: string;
-    stack?: string;
-    data: number[];
-    emphasis: {
-      focus: string;
-    };
-  }>;
-}
+// ChartData type and createChartData function now imported from utility
 
-const createChartData = (
-  filteredIssues: Issue[],
-  selectedLabels: string[]
-): ChartData => {
-  const result: ChartData = {
-    categories: [],
-    series: [],
-  };
-
-  if (selectedLabels.length === 0) {
-    return result;
-  }
-
-  // Create a map to count issues by label
-  const labelCounts: Record<string, number> = {};
-  
-  selectedLabels.forEach(label => {
-    labelCounts[label] = 0;
-  });
-
-  // Count issues that have each selected label
-  filteredIssues.forEach((issue) => {
-    const issueLabels = issue.labels?.map(l => l.name) || [];
-    selectedLabels.forEach(label => {
-      if (issueLabels.includes(label)) {
-        labelCounts[label]++;
-      }
-    });
-  });
-
-  // Prepare chart data
-  result.categories = selectedLabels;
-  result.series = [{
-    name: "Issue Count",
-    type: "bar",
-    data: selectedLabels.map(label => labelCounts[label]),
-    emphasis: {
-      focus: "self",
-    },
-  }];
-
-  return result;
-};
+const EMPTY_ARRAY: any[] = [];
 
 export const TypeLabelAnalysisChart = ({
   flattenedData,
@@ -100,9 +48,12 @@ export const TypeLabelAnalysisChart = ({
   // Check if component is being used in standalone mode or controlled mode
   const isControlledMode = propFilteredData !== undefined;
 
+  // Stabilize data to prevent infinite loops in useFilterableDimensions
+  const stableData = useMemo(() => flattenedData || EMPTY_ARRAY, [flattenedData]);
+
   // Use the reusable hook only in standalone mode
   const hookResult = useFilterableDimensions({
-    data: flattenedData || [],
+    data: stableData,
     storageKey: 'typeLabelAnalysisState',
   });
 
@@ -164,44 +115,7 @@ export const TypeLabelAnalysisChart = ({
     setChartOptions(options);
   }, [selectedFilters, selectedDimensionField, selectedDimensionValues, filterOperator, filteredData]);
 
-  // Create chart data for non-label fields
-  const createChartDataForField = (issues: any[], fieldName: string, selectedValues: string[]) => {
-    const result: ChartData = {
-      categories: [],
-      series: [],
-    };
-
-    if (selectedValues.length === 0) {
-      return result;
-    }
-
-    // Count issues by selected field values
-    const valueCounts: Record<string, number> = {};
-    
-    selectedValues.forEach(value => {
-      valueCounts[value] = 0;
-    });
-
-    issues.forEach((issue: any) => {
-      const issueValue = String(issue[fieldName] || '');
-      if (selectedValues.includes(issueValue)) {
-        valueCounts[issueValue]++;
-      }
-    });
-
-    result.categories = selectedValues;
-    result.series = [{
-      name: "Issue Count",
-      type: "bar",
-      data: selectedValues.map(value => valueCounts[value]),
-      emphasis: {
-        focus: "self",
-      },
-    }];
-
-    return result;
-  };
-
+  // createChartDataForField is now imported from utility
 
   return (
     <Box>

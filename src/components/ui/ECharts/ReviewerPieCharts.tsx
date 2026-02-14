@@ -6,6 +6,9 @@ import { CustomCheckboxIndicator } from "./CustomCheckboxIndicator";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AverageByPersonTable } from "./AverageByPersonTable";
 import { DateRangeFilterStrip } from "./DateRangeFilterStrip";
+import { createReviewerPieChartData } from '@/util/chartDataGenerators/reviewerPieChartData';
+
+export { createReviewerPieChartData } from '@/util/chartDataGenerators/reviewerPieChartData';
 
 interface ReviewComment {
   author: string;
@@ -18,52 +21,17 @@ interface PullRequest {
   reviewComments: ReviewComment[];
 }
 
-export const createReviewerPieChartData = (prs: PullRequest[]) => {
-  const reviewerData: Record<string, number> = {};
-
-  prs.forEach((pr) => {
-    if (!pr.reviewComments || pr.reviewComments.length === 0) {
-      return; // Skip PRs with no review comments
-    }
-
-    // Process review comments
-    pr.reviewComments.forEach((comment) => {
-      // Skip comments from the PR author
-      if (comment.author === pr.author) {
-        return;
-      }
-
-      if (!reviewerData[comment.author]) {
-        reviewerData[comment.author] = 0;
-      }
-      reviewerData[comment.author]++;
-    });
-  });
-
-  // Convert to series data format
-  return Object.entries(reviewerData).map(([reviewer, count]) => ({
-    name: reviewer,
-    value: count
-  }));
-};
-
 export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) => {
   const [chartOptions, setChartOptions] = useState(pieChartTemplate);
   const [filteredReviewers, setFilteredReviewers] = useState<string[]>([]);
   const [allReviewers, setAllReviewers] = useState<string[]>([]);
+  const [pieData, setPieData] = useState<any[]>([]);
   const [percentages, setPercentages] = useState<Record<string, number>>({});
   const [dateFilteredData, setDateFilteredData] = useState<PullRequest[]>([]);
 
   const handleFilteredData = useCallback((filtered: PullRequest[]) => {
     setDateFilteredData(filtered);
   }, []);
-
-  // Initialize filtered reviewers when allReviewers changes
-  useEffect(() => {
-    if (allReviewers.length > 0 && filteredReviewers.length === 0) {
-      setFilteredReviewers(allReviewers);
-    }
-  }, [allReviewers]);
 
   // Create the collection for the Select component
   const collection = useMemo(() => {
@@ -75,29 +43,51 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
     });
   }, [allReviewers]);
 
-  const dataToUse = dateFilteredData.length > 0 ? dateFilteredData : (flattenedData ?? []);
-
+  // Step 1: Calculate pie data and extract all reviewers (no dependency on filteredReviewers)
   useEffect(() => {
     if (!flattenedData?.length) {
+      setPieData([]);
+      setAllReviewers([]);
       setChartOptions(pieChartTemplate);
       return;
     }
 
-    const pieData = createReviewerPieChartData(dataToUse);
-    
-    // Update all reviewers list
-    const reviewers = pieData.map(item => item.name);
-    setAllReviewers(reviewers);
-    
+    const dataToUse = dateFilteredData.length > 0 ? dateFilteredData : flattenedData;
+    const data = createReviewerPieChartData(dataToUse);
+    setPieData(data);
+
+    // Update all reviewers list only if it changed
+    const reviewers = data.map(item => item.name);
+    setAllReviewers(prev => {
+      const hasChanged = prev.length !== reviewers.length ||
+        !prev.every((r, i) => r === reviewers[i]);
+      return hasChanged ? reviewers : prev;
+    });
+  }, [flattenedData, dateFilteredData]);
+
+  // Step 2: Initialize filtered reviewers when allReviewers changes (one-time)
+  useEffect(() => {
+    if (allReviewers.length > 0 && filteredReviewers.length === 0) {
+      setFilteredReviewers(allReviewers);
+    }
+  }, [allReviewers]);
+
+  // Step 3: Apply filters and update chart (depends on pieData, filteredReviewers, searchTerm)
+  useEffect(() => {
+    if (pieData.length === 0) {
+      setChartOptions(pieChartTemplate);
+      return;
+    }
+
     // Filter data based on search term and filtered reviewers
     const filteredData = pieData.filter(item => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         item.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filteredReviewers.length === 0 || 
+      const matchesFilter = filteredReviewers.length === 0 ||
         filteredReviewers.includes(item.name);
       return matchesSearch && matchesFilter;
     });
-    
+
     const total = filteredData.reduce((sum, d) => sum + d.value, 0);
     const pct: Record<string, number> = {};
     filteredData.forEach((d) => {
@@ -120,7 +110,7 @@ export const ReviewerPieCharts = ({ flattenedData, styleOptions, searchTerm }) =
     }];
 
     setChartOptions(options);
-  }, [flattenedData, dateFilteredData, searchTerm, filteredReviewers]);
+  }, [pieData, filteredReviewers, searchTerm]);
 
   const mainChartHeight = 350;
   return (

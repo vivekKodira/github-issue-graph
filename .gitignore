@@ -6,3 +6,4 @@ src/samples
 logs
 CLAUDE.md
 .claude/
+coverage/

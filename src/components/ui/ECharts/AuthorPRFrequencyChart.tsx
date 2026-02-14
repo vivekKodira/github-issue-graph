@@ -30,7 +30,12 @@ export const AuthorPRFrequencyChart = ({ prs, styleOptions }) => {
     });
     const months = Array.from(allMonths).sort();
     const authors = Object.keys(freqData);
-    setAllAuthors(authors);
+    // Only update allAuthors if it changed to prevent unnecessary re-renders
+    setAllAuthors(prev => {
+      const hasChanged = prev.length !== authors.length ||
+        !prev.every((a, i) => a === authors[i]);
+      return hasChanged ? authors : prev;
+    });
     // Preselect all authors if none selected
     if (authors.length > 0 && selectedAuthors.length === 0) {
       setSelectedAuthors(authors);

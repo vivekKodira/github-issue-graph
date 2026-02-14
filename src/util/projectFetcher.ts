@@ -117,7 +117,7 @@ async function fetchAllProjectTasks(projectId: string, githubToken: string): Pro
     return tasks;
 }
 
-const flattenGraphQLResponse = function (response) {
+export const flattenGraphQLResponse = function (response) {
     const flat = {};
 
     // Extract top-level fields

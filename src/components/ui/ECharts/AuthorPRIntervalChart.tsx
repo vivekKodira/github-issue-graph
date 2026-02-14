@@ -43,7 +43,12 @@ const AuthorPRIntervalChartContent = ({ prs, styleOptions }) => {
     });
     authorPRs.current = _authorPRs;
     const authors = Object.keys(_authorPRs);
-    setAllAuthors(authors);
+    // Only update allAuthors if it changed to prevent unnecessary re-renders
+    setAllAuthors(prev => {
+      const hasChanged = prev.length !== authors.length ||
+        !prev.every((a, i) => a === authors[i]);
+      return hasChanged ? authors : prev;
+    });
     // Preselect all authors if none selected
     if (authors.length > 0 && selectedAuthors.length === 0) {
       setSelectedAuthors(authors);

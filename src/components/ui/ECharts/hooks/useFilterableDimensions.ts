@@ -9,6 +9,10 @@ interface StoredState {
 }
 
 const loadStateFromStorage = (storageKey: string): Partial<StoredState> => {
+  // Skip localStorage in test environment
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return {};
+  }
   try {
     const stored = localStorage.getItem(storageKey);
     return stored ? JSON.parse(stored) : {};
@@ -19,6 +23,10 @@ const loadStateFromStorage = (storageKey: string): Partial<StoredState> => {
 };
 
 const saveStateToStorage = (storageKey: string, state: StoredState) => {
+  // Skip localStorage in test environment
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return;
+  }
   try {
     localStorage.setItem(storageKey, JSON.stringify(state));
   } catch (error) {
@@ -32,11 +40,18 @@ interface UseFilterableDimensionsProps {
   excludedFields?: string[];
 }
 
+const EMPTY_ARRAY: any[] = [];
+const EMPTY_OBJECT: Record<string, string[]> = {};
+const DEFAULT_EXCLUDED_FIELDS = ['id', 'issue_number', 'number', 'body', 'html_url', 'links', 'title', 'Title', 'repository', 'repo_owner', 'state'];
+
 export const useFilterableDimensions = ({
   data,
   storageKey,
-  excludedFields = ['id', 'issue_number', 'number', 'body', 'html_url', 'links', 'title', 'Title', 'repository', 'repo_owner', 'state']
+  excludedFields = DEFAULT_EXCLUDED_FIELDS
 }: UseFilterableDimensionsProps) => {
+  // Stabilize data reference to prevent infinite loops
+  const stableData = useMemo(() => data || EMPTY_ARRAY, [data]);
+
   // Load initial state from localStorage
   const storedState = useMemo(() => loadStateFromStorage(storageKey), [storageKey]);
   
@@ -58,11 +73,11 @@ export const useFilterableDimensions = ({
 
   // Extract all filterable fields and their unique values
   const filterableFields = useMemo(() => {
-    if (!data || data.length === 0) return {};
+    if (!stableData || stableData.length === 0) return EMPTY_OBJECT;
 
     const fields: Record<string, Set<string>> = {};
 
-    data.forEach((item: any) => {
+    stableData.forEach((item: any) => {
       Object.keys(item).forEach((key) => {
         if (excludedFields.includes(key) || key === 'labels' || key === 'assignees') {
           return;
@@ -89,18 +104,18 @@ export const useFilterableDimensions = ({
     });
 
     return result;
-  }, [data, excludedFields]);
+  }, [stableData, excludedFields]);
 
   // Extract unique labels
   const uniqueLabels = useMemo(() => {
     return Array.from(
       new Set(
-        data.flatMap((item) =>
+        stableData.flatMap((item) =>
           (item.labels || []).map((label: any) => label.name)
         )
       )
     ).sort();
-  }, [data]);
+  }, [stableData]);
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
@@ -138,8 +153,8 @@ export const useFilterableDimensions = ({
 
   // Apply filters to data
   const filteredData = useMemo(() => {
-    let result = data;
-    
+    let result = stableData;
+
     const activeFilters = Object.entries(selectedFilters).filter(([_, values]) => values.length > 0);
     const hasAnyFilters = activeFilters.length > 0;
 
@@ -167,7 +182,7 @@ export const useFilterableDimensions = ({
     }
 
     return result;
-  }, [data, selectedFilters, filterOperator]);
+  }, [stableData, selectedFilters, filterOperator]);
 
   // Get dimension values based on selected field
   const dimensionValues = useMemo(() => {
