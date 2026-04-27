@@ -9,14 +9,17 @@ import { TypeLabelAnalysisChart } from "./TypeLabelAnalysisChart";
 import { DimensionTimelineChart } from "./DimensionTimelineChart";
 import { TimeEstimationWidget } from "./TimeEstimationWidget";
 import { TimelinePlanningChart } from "./TimelinePlanningChart";
+import { RCAWordCloudChart } from "./RCAWordCloudChart";
 
 interface IssueAnalysisDashboardV2Props {
   flattenedData?: unknown[];  // Keep for backwards compatibility, but not used
   styleOptions?: Record<string, unknown>;
+  openaiApiKey?: string;
 }
 
 export const IssueAnalysisDashboardV2 = ({
   styleOptions,
+  openaiApiKey,
 }: IssueAnalysisDashboardV2Props) => {
   const [showMetaFilter, setShowMetaFilter] = useState(false);
 
@@ -167,6 +170,13 @@ export const IssueAnalysisDashboardV2 = ({
           filteredData={filteredData}
           filterableFields={filterableFields}
           styleOptions={styleOptions}
+        />
+
+        {/* RCA Word Cloud - same filtered issues as above */}
+        <RCAWordCloudChart
+          issues={filteredData as { Type?: string; body?: string; title?: string; issue_number?: number; labels?: Array<{ name: string }> }[]}
+          styleOptions={styleOptions ?? { width: "100%", height: "500px" }}
+          openaiApiKey={openaiApiKey}
         />
       </Stack>
     </Box>

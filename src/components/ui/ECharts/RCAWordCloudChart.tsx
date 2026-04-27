@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import 'echarts-wordcloud';
 import {
     Box,
-    Input,
     HStack,
     VStack,
     Table,
@@ -17,7 +16,6 @@ import {
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { toaster } from "@/components/ui/toaster";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { DateRangeFilterStrip } from "./DateRangeFilterStrip";
 
 interface Issue {
     Type?: string;
@@ -181,13 +179,8 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
     const [lastOpenaiApiKey, setLastOpenaiApiKey] = useState<string>('');
     const processingRef = useRef(false);
     const pageSize = 10;
-    const [dateFilteredData, setDateFilteredData] = useState<Issue[]>([]);
 
-    const handleFilteredData = useCallback((filtered: unknown[]) => {
-        setDateFilteredData(filtered as Issue[]);
-    }, []);
-
-    const dataToUse = dateFilteredData.length > 0 ? dateFilteredData : (issues ?? []);
+    const dataToUse = issues ?? [];
 
     const processSentenceCloud = useCallback(async () => {
         if (!dataToUse?.length) return;
@@ -434,16 +427,6 @@ export const RCAWordCloudChart = ({ issues, styleOptions, openaiApiKey }: RCAWor
     const chartHeight = 500;
     return (
         <VStack align="stretch" w="full" gap={0}>
-            {issues?.length ? (
-                <Box flexShrink={0} width="100%" marginBottom={4}>
-                    <DateRangeFilterStrip
-                        data={issues as unknown as Record<string, unknown>[]}
-                        dateField="createdAt"
-                        onFilteredData={handleFilteredData as (filtered: Record<string, unknown>[]) => void}
-                        styleOptions={styleOptions}
-                    />
-                </Box>
-            ) : null}
             <HStack gap={4} align="stretch" w="full" flex={1} minHeight={0}>
             <Box w="80%" minWidth={0} height={`${chartHeight}px`} minHeight={`${chartHeight}px`} overflow="hidden" flexShrink={0}>
                 {isLoading ? (

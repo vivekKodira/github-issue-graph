@@ -36,7 +36,6 @@ import { AuthorLineCharts } from "../ECharts/AuthorLineCharts";
 import { Insights } from "../ECharts/Insights";
 import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
 import { IssueAnalysisDashboardV2 } from "../ECharts/IssueAnalysisDashboardV2";
-import { RCAWordCloudChart } from "../ECharts/RCAWordCloudChart";
 import { DateRangeFilterStrip } from "../ECharts/DateRangeFilterStrip";
 import { appendRenderLog, getRenderLog } from "@/util/renderDebugLog";
 
@@ -532,15 +531,9 @@ export const ProjectDashboard = ({
             {/* Issue Graph Tab */}
             <Tabs.Content value="issues">
               <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
-                {/* Using V2 Dashboard with Advanced Mango Query Support */}
+                {/* Using V2 Dashboard with Advanced Mango Query Support; RCA Word Cloud uses same filtered data */}
                 <IssueAnalysisDashboardV2
                   flattenedData={flattenedData}
-                  styleOptions={styleOptions}
-                />
-              </Box>
-              <Box p={6} borderRadius="lg" borderWidth="1px" mb={6}>
-                <RCAWordCloudChart 
-                  issues={flattenedData} 
                   styleOptions={styleOptions}
                   openaiApiKey={openaiApiKey}
                 />

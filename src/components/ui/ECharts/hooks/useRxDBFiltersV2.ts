@@ -210,6 +210,10 @@ export const useRxDBFiltersV2 = ({
       const newValues = currentValues.includes(value)
         ? currentValues.filter((v) => v !== value)
         : [...currentValues, value];
+      if (newValues.length === 0) {
+        const { [fieldName]: _, ...rest } = prev;
+        return rest;
+      }
       return { ...prev, [fieldName]: newValues };
     });
   };
@@ -223,10 +227,20 @@ export const useRxDBFiltersV2 = ({
   };
 
   const toggleFilterVisibility = (filterName: string) => {
-    setVisibleFilters(prev => ({
-      ...prev,
-      [filterName]: !prev[filterName]
-    }));
+    let wasVisible = false;
+    setVisibleFilters((prev) => {
+      wasVisible = prev[filterName] === true;
+      return { ...prev, [filterName]: !prev[filterName] };
+    });
+    if (wasVisible) {
+      setSelectedFilters((prev) => {
+        if (!(filterName in prev) || !prev[filterName]?.length) {
+          return prev;
+        }
+        const { [filterName]: _, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   const applyCustomQuery = (query: any) => {

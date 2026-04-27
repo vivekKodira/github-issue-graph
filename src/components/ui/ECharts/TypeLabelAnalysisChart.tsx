@@ -149,16 +149,31 @@ export const TypeLabelAnalysisChart = ({
       return `${displayName}: ${values.join(", ")}`;
     });
     
-    const filterText = activeFilters.length > 0 ? ` (${filterOperator})` : "";
+    const filterJoiner = filterOperator === "AND" ? "\nAND " : "\nOR ";
+    const filterPrefix = filterOperator === "AND" ? "AND conditions" : "OR conditions";
     const dimensionText = `by ${selectedDimensionField.charAt(0).toUpperCase() + selectedDimensionField.slice(1)}`;
+    const titleLineCount = titleParts.length > 0 ? titleParts.length + 1 : 1;
+    const titleBlockHeight = Math.max(44, titleLineCount * 22);
+
     options.title = {
-      text: `Issue Analysis ${dimensionText}${titleParts.length > 0 ? `: ${titleParts.join(" | ")}${filterText}` : ""}`,
+      text: `Issue Analysis ${dimensionText}${titleParts.length > 0 ? `\n${filterPrefix}: ${titleParts.join(filterJoiner)}` : ""}`,
       textStyle: {
         color: '#ffffff',
-        fontSize: 16
+        fontSize: 16,
+        lineHeight: 22,
+        overflow: "breakAll",
       },
-      left: 'center',
+      left: 16,
+      right: 16,
       top: 10
+    };
+    options.legend = {
+      ...options.legend,
+      top: titleBlockHeight + 12,
+    };
+    options.grid = {
+      ...options.grid,
+      top: titleBlockHeight + 48,
     };
 
     setChartOptions(options);

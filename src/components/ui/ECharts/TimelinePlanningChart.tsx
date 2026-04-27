@@ -12,8 +12,8 @@ interface TimelinePlanningChartProps {
 interface ScheduledTask {
   issue: unknown;
   developerIndex: number;
-  startTime: number;
-  endTime: number;
+  startDay: number;
+  endDay: number;
   duration: number;
   issueTitle: string;
   issueNumber: string | number;
@@ -111,10 +111,6 @@ export const TimelinePlanningChart = ({
       return [];
     }
 
-    // Get unit for conversion
-    const unit = getUnitFromFieldName(selectedEstimationField);
-
-    // Sort issues based on selected strategy
     let sortedIssues = [...issuesWithValues];
     switch (sortStrategy) {
       case 'largest-first':
@@ -124,116 +120,49 @@ export const TimelinePlanningChart = ({
         sortedIssues = sortedIssues.sort((a, b) => a.value - b.value);
         break;
       case 'round-robin':
-        // For round-robin, we'll distribute evenly, so keep original order
         break;
       default:
         sortedIssues = sortedIssues.sort((a, b) => b.value - a.value);
     }
 
-    // Track when each developer becomes available (in milliseconds)
     const developerAvailability: number[] = new Array(numDevelopers).fill(0);
     const scheduled: ScheduledTask[] = [];
 
-    // Get base start time (use provided start date or current time)
-    const baseTime = startDate 
-      ? new Date(startDate).getTime() 
-      : Date.now();
-    
-    const holidaySet = new Set(holidays);
-
-    const calculateEndTime = (start: number, duration: number, holidayDays: Set<number>) => {
-      let current = new Date(start);
-      let remaining = duration;
-      
-      // Safety break to prevent infinite loops if all days are holidays
-      if (holidayDays.size === 7) return start + duration;
-
-      while (remaining > 0) {
-        const day = current.getDay();
-        
-        // Calculate time until end of current day
-        const nextDay = new Date(current);
-        nextDay.setDate(nextDay.getDate() + 1);
-        nextDay.setHours(0, 0, 0, 0);
-        const msUntilNextDay = nextDay.getTime() - current.getTime();
-        
-        if (holidayDays.has(day)) {
-          // It's a holiday, skip to next day without reducing duration
-          // But only if we are not already at the exact end of the day (which is start of next)
-          // Actually, if we are at start of holiday, skip it.
-          // If msUntilNextDay is effectively a full day (or close), skip it.
-          // If we are in middle of holiday, skip rest.
-          current = nextDay;
-        } else {
-          // It's a work day
-          const timeToAdvance = Math.min(remaining, msUntilNextDay);
-          current = new Date(current.getTime() + timeToAdvance);
-          remaining -= timeToAdvance;
-        }
-      }
-      return current.getTime();
-    };
-
-    // Convert estimation value to milliseconds based on unit
-    const convertToMs = (value: number, unit: string): number => {
-      if (unit === 'hours') {
-        return value * 1000 * 60 * 60;
-      } else if (unit === 'days') {
-        return value * 1000 * 60 * 60 * 24;
-      } else if (unit === 'weeks') {
-        return value * 1000 * 60 * 60 * 24 * 7;
-      } else if (unit === 'months') {
-        return value * 1000 * 60 * 60 * 24 * 30;
-      }
-      // For 'units', assume it's in hours as default
-      return value * 1000 * 60 * 60;
-    };
-
     sortedIssues.forEach(({ issue, value }) => {
-      // Find the developer with the earliest availability
       let earliestDeveloper = 0;
-      let earliestTime = developerAvailability[0];
-
+      let earliestDay = developerAvailability[0];
       for (let i = 1; i < numDevelopers; i++) {
-        if (developerAvailability[i] < earliestTime) {
-          earliestTime = developerAvailability[i];
+        if (developerAvailability[i] < earliestDay) {
+          earliestDay = developerAvailability[i];
           earliestDeveloper = i;
         }
       }
+      const startDay = earliestDay;
+      const endDay = startDay + value;
 
-      // Convert duration to milliseconds
-      const durationMs = convertToMs(value, unit);
-
-      // Schedule the task
-      // Schedule the task
-      const startTime = baseTime + earliestTime;
-      const endTime = calculateEndTime(startTime, durationMs, holidaySet);
-      
-      const issueObj = issue as { 
-        title?: string; 
-        issue_number?: number; 
-        number?: number; 
+      const issueObj = issue as {
+        title?: string;
+        issue_number?: number;
+        number?: number;
         id?: string;
       };
       const issueTitle = issueObj.title || 'Untitled';
-      const issueNumber = issueObj.issue_number || issueObj.number || issueObj.id || 'N/A';
+      const issueNumber = issueObj.issue_number ?? issueObj.number ?? issueObj.id ?? 'N/A';
 
       scheduled.push({
         issue,
         developerIndex: earliestDeveloper,
-        startTime,
-        endTime,
-        duration: value, // Keep original value for display
+        startDay,
+        endDay,
+        duration: value,
         issueTitle,
         issueNumber,
       });
-
-      // Update developer availability (in milliseconds from baseTime)
-      developerAvailability[earliestDeveloper] = endTime - baseTime;
+      developerAvailability[earliestDeveloper] = endDay;
     });
 
     return scheduled;
-  }, [issuesWithValues, numDevelopers, startDate, selectedEstimationField, sortStrategy, holidays]);
+  }, [issuesWithValues, numDevelopers, selectedEstimationField, sortStrategy]);
 
   const unit = selectedEstimationField ? getUnitFromFieldName(selectedEstimationField) : 'units';
 
@@ -251,16 +180,16 @@ export const TimelinePlanningChart = ({
 
   // Calculate workload per developer
   const developerWorkload = useMemo(() => {
-    const workload: Record<number, { total: number; tasks: number; maxEndTime: number }> = {};
+    const workload: Record<number, { total: number; tasks: number; maxEndDay: number }> = {};
     scheduledTasks.forEach(task => {
       if (!workload[task.developerIndex]) {
-        workload[task.developerIndex] = { total: 0, tasks: 0, maxEndTime: 0 };
+        workload[task.developerIndex] = { total: 0, tasks: 0, maxEndDay: 0 };
       }
       workload[task.developerIndex].total += task.duration;
       workload[task.developerIndex].tasks += 1;
-      workload[task.developerIndex].maxEndTime = Math.max(
-        workload[task.developerIndex].maxEndTime,
-        task.endTime
+      workload[task.developerIndex].maxEndDay = Math.max(
+        workload[task.developerIndex].maxEndDay,
+        task.endDay
       );
     });
     return workload;
@@ -269,21 +198,17 @@ export const TimelinePlanningChart = ({
   // Identify critical path tasks (tasks on the longest path)
   const criticalPathTasks = useMemo(() => {
     if (scheduledTasks.length === 0) return new Set<number>();
-    
-    // Find the developer with the longest total time
-    const developerEndTimes = new Array(numDevelopers).fill(0);
+    const developerEndDays = new Array(numDevelopers).fill(0);
     scheduledTasks.forEach(task => {
-      developerEndTimes[task.developerIndex] = Math.max(
-        developerEndTimes[task.developerIndex],
-        task.endTime
+      developerEndDays[task.developerIndex] = Math.max(
+        developerEndDays[task.developerIndex],
+        task.endDay
       );
     });
-    const maxTime = Math.max(...developerEndTimes);
-    
-    // Tasks that end at or near maxTime are on critical path
+    const maxDay = Math.max(...developerEndDays);
     const criticalSet = new Set<number>();
     scheduledTasks.forEach((task, index) => {
-      if (task.endTime >= maxTime - 1000) { // Within 1 second of max
+      if (task.endDay >= maxDay - 0.001) {
         criticalSet.add(index);
       }
     });
@@ -306,26 +231,12 @@ export const TimelinePlanningChart = ({
     }
   }, [scheduledTasks, viewMode, outliers, criticalPathTasks]);
 
-  // Calculate total project duration
+  // Total duration = total effort / number of developers (same as TimeEstimationWidget)
   const totalDuration = useMemo(() => {
-    if (scheduledTasks.length === 0) return 0;
-    const maxEndTime = Math.max(...scheduledTasks.map(t => t.endTime));
-    const minStartTime = Math.min(...scheduledTasks.map(t => t.startTime));
-    const durationMs = maxEndTime - minStartTime;
-    
-    // Convert milliseconds to the appropriate unit
-    if (unit === 'hours') {
-      return durationMs / (1000 * 60 * 60);
-    } else if (unit === 'days') {
-      return durationMs / (1000 * 60 * 60 * 24);
-    } else if (unit === 'weeks') {
-      return durationMs / (1000 * 60 * 60 * 24 * 7);
-    } else if (unit === 'months') {
-      return durationMs / (1000 * 60 * 60 * 24 * 30);
-    }
-    // For 'units', we treated them as hours when converting, so convert back from hours
-    return durationMs / (1000 * 60 * 60);
-  }, [scheduledTasks, unit]);
+    if (scheduledTasks.length === 0 || numDevelopers < 1) return 0;
+    const totalEffort = scheduledTasks.reduce((sum, t) => sum + t.duration, 0);
+    return totalEffort / numDevelopers;
+  }, [scheduledTasks, numDevelopers]);
 
   // Prepare chart data
   const chartOptions = useMemo(() => {
@@ -348,50 +259,45 @@ export const TimelinePlanningChart = ({
     // const DIM_ISSUE_NUMBER = 4;
     // const DIM_DURATION = 5;
 
-    // Create data for custom series: [categoryIndex, startTime, endTime, ...metadata]
-    const allTasksData = filteredScheduledTasks.map((task, index) => {
+    // Create data: [categoryIndex, startDay, endDay, ...metadata] — x-axis in day units (0 to totalDuration)
+    const allTasksData = filteredScheduledTasks.map((task) => {
       const originalIndex = scheduledTasks.indexOf(task);
       const isCritical = criticalPathTasks.has(originalIndex);
       const isOutlier = outliers.includes(task);
       return [
-        task.developerIndex, // DIM_CATEGORY_INDEX - y-axis category index (number)
-        task.startTime,      // DIM_TIME_START - x-axis start
-        task.endTime,        // DIM_TIME_END - x-axis end
-        task.issueTitle,     // DIM_ISSUE_TITLE - for tooltip
-        task.issueNumber,    // DIM_ISSUE_NUMBER - for tooltip
-        task.duration,       // DIM_DURATION - for tooltip
-        isCritical,          // DIM_IS_CRITICAL - for styling
-        isOutlier,           // DIM_IS_OUTLIER - for styling
+        task.developerIndex,
+        task.startDay,
+        task.endDay,
+        task.issueTitle,
+        task.issueNumber,
+        task.duration,
+        isCritical,
+        isOutlier,
       ];
     });
 
-    const minTime = Math.min(...filteredScheduledTasks.map(t => t.startTime));
-    const maxTime = Math.max(...filteredScheduledTasks.map(t => t.endTime));
+    const xMin = 0;
+    const xMax = totalDuration;
 
     return {
       tooltip: {
         trigger: 'item',
-        formatter: (params: any) => {
+        formatter: (params: { data?: unknown[] }) => {
           const data = params.data;
           if (!data || !Array.isArray(data)) return '';
-          
           const categoryIndex = data[0];
-          const startTime = data[1];
-          const endTime = data[2];
+          const startDay = data[1] as number;
+          const endDay = data[2] as number;
           const issueTitle = data[3] || 'Untitled';
           const issueNumber = data[4] || 'N/A';
-          const duration = data[5] || 0;
-          
-          const startDate = new Date(startTime);
-          const endDate = new Date(endTime);
-          
+          const duration = data[5] as number ?? 0;
           return `
             <div style="padding: 8px;">
               <strong>${issueTitle}</strong><br/>
               Issue #${issueNumber}<br/>
-              Developer: ${developerLabels[categoryIndex]}<br/>
-              Start: ${startDate.toLocaleString()}<br/>
-              End: ${endDate.toLocaleString()}<br/>
+              Developer: ${developerLabels[categoryIndex as number]}<br/>
+              Start: ${startDay.toFixed(2)} days<br/>
+              End: ${endDay.toFixed(2)} days<br/>
               Duration: ${duration.toFixed(2)} ${unit}
             </div>
           `;
@@ -405,18 +311,14 @@ export const TimelinePlanningChart = ({
         containLabel: true,
       },
       xAxis: {
-        type: 'time',
-        min: minTime,
-        max: maxTime,
-        scale: true,
+        type: 'value',
+        min: xMin,
+        max: xMax,
         axisLabel: {
-          formatter: (value: number) => {
-            const date = new Date(value);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          },
+          formatter: (value: number) => value.toFixed(1),
           color: '#ffffff',
         },
-        name: 'Timeline',
+        name: 'Days',
         nameTextStyle: {
           color: '#ffffff',
         },
@@ -462,8 +364,8 @@ export const TimelinePlanningChart = ({
           type: 'custom',
           dimensions: [
             'categoryIndex',
-            'startTime',
-            'endTime',
+            'startDay',
+            'endDay',
             'issueTitle',
             'issueNumber',
             'duration',
@@ -471,27 +373,26 @@ export const TimelinePlanningChart = ({
             'isOutlier'
           ],
           encode: {
-            x: [1, 2], // startTime and endTime for x-axis
+            x: [1, 2],
             y: 0,      // categoryIndex for y-axis
             tooltip: [0, 1, 2, 3, 4, 5]
           },
           renderItem: (params: any, api: any) => {
             try {
               const DIM_CATEGORY_INDEX = 0;
-              const DIM_TIME_START = 1;
-              const DIM_TIME_END = 2;
+              const DIM_START_DAY = 1;
+              const DIM_END_DAY = 2;
               const DIM_IS_CRITICAL = 6;
               const DIM_IS_OUTLIER = 7;
               
               const categoryIndex = api.value(DIM_CATEGORY_INDEX);
-              const startTime = api.value(DIM_TIME_START);
-              const endTime = api.value(DIM_TIME_END);
+              const startDay = api.value(DIM_START_DAY);
+              const endDay = api.value(DIM_END_DAY);
               const isCritical = api.value(DIM_IS_CRITICAL);
               const isOutlier = api.value(DIM_IS_OUTLIER);
               
-              // Get coordinates - pass categoryIndex as number (not string)
-              const startCoord = api.coord([startTime, categoryIndex]);
-              const endCoord = api.coord([endTime, categoryIndex]);
+              const startCoord = api.coord([startDay, categoryIndex]);
+              const endCoord = api.coord([endDay, categoryIndex]);
               
               if (!startCoord || !endCoord) {
                 return null;
@@ -570,7 +471,7 @@ export const TimelinePlanningChart = ({
         },
       ],
     };
-  }, [filteredScheduledTasks, unit, numDevelopers, scheduledTasks, criticalPathTasks, outliers]);
+  }, [filteredScheduledTasks, unit, numDevelopers, scheduledTasks, criticalPathTasks, outliers, totalDuration]);
 
   return (
     <Box id="timeline-planning-chart" mt={4} p={4} borderWidth="1px" borderRadius="8px" borderColor="gray.200">
@@ -843,33 +744,13 @@ export const TimelinePlanningChart = ({
               </Text>
               {Object.entries(developerWorkload).map(([devIndex, workload]) => {
                 const devLabel = `Developer ${Number(devIndex) + 1}`;
-                // Calculate workload duration from maxEndTime - minStartTime for this developer
-                const developerTasks = scheduledTasks.filter(t => t.developerIndex === Number(devIndex));
-                const minStart = Math.min(...developerTasks.map(t => t.startTime));
-                const maxEnd = Math.max(...developerTasks.map(t => t.endTime));
-                const durationMs = maxEnd - minStart;
-                
-                // Convert to the appropriate unit
-                let workloadInUnit = 0;
-                if (unit === 'hours') {
-                  workloadInUnit = durationMs / (1000 * 60 * 60);
-                } else if (unit === 'days') {
-                  workloadInUnit = durationMs / (1000 * 60 * 60 * 24);
-                } else if (unit === 'weeks') {
-                  workloadInUnit = durationMs / (1000 * 60 * 60 * 24 * 7);
-                } else if (unit === 'months') {
-                  workloadInUnit = durationMs / (1000 * 60 * 60 * 24 * 30);
-                } else {
-                  workloadInUnit = durationMs / (1000 * 60 * 60);
-                }
-                
                 return (
                   <Box key={devIndex} p={2} bg="white" borderRadius="2px">
                     <Text fontSize="xs" fontWeight="medium" color="purple.800">
                       {devLabel}
                     </Text>
                     <Text fontSize="xs" color="purple.600">
-                      {workload.tasks} task{workload.tasks !== 1 ? 's' : ''} • {workloadInUnit.toFixed(2)} {unit}
+                      {workload.tasks} task{workload.tasks !== 1 ? 's' : ''} • {workload.maxEndDay.toFixed(2)} {unit}
                     </Text>
                   </Box>
                 );
