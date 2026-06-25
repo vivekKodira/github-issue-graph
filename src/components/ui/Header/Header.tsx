@@ -2,7 +2,14 @@ import { Box, Heading, Link, HStack, Button } from "@chakra-ui/react";
 import { useColorModeValue, useColorMode } from "@/components/ui/color-mode";
 import { LuMoon, LuSun } from "react-icons/lu";
 
-export function Header() {
+interface HeaderProps {
+  /** Whether the legacy 5-tab dashboard is currently shown. */
+  classicMode?: boolean;
+  /** Toggle between the classic dashboard and the question-driven flow. */
+  onToggleClassic?: () => void;
+}
+
+export function Header({ classicMode, onToggleClassic }: HeaderProps = {}) {
   // Theme-aware colors
   const headerBg = useColorModeValue("gray.50", "gray.800");
   const headerBorderColor = useColorModeValue("gray.200", "gray.700");
@@ -10,7 +17,7 @@ export function Header() {
   const linkColor = useColorModeValue("gray.600", "gray.200");
   const linkHoverColor = useColorModeValue("gray.800", "white");
   const iconColor = useColorModeValue("gray.700", "white");
-  
+
   // Theme toggle functionality
   const { colorMode, toggleColorMode } = useColorMode();
   const ThemeIcon = colorMode === "dark" ? LuMoon : LuSun;
@@ -22,6 +29,21 @@ export function Header() {
           GitHub Issue Graph
         </Heading>
         <HStack gap={4}>
+          {onToggleClassic && (
+            <Button
+              onClick={onToggleClassic}
+              size="sm"
+              variant="outline"
+              aria-pressed={classicMode}
+              title={
+                classicMode
+                  ? "Switch to the question-driven view"
+                  : "Switch to the classic dashboard"
+              }
+            >
+              {classicMode ? "New view" : "Classic view"}
+            </Button>
+          )}
           <Button
             onClick={toggleColorMode}
             aria-label="Toggle color mode"

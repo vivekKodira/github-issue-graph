@@ -22,7 +22,7 @@ query ($projectId: ID!, $after: String) {
           }
         }
       }
-      items(first: 50, after: $after) {
+      items(first: 100, after: $after) {
         nodes {
           id
           content {

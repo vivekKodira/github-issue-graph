@@ -5,8 +5,12 @@ import { appendRenderLog } from "./renderDebugLog";
 
 const GITHUB_API_URL = "https://api.github.com/graphql";
 
-/** Yield to main thread between paginated requests to avoid browser throttling/abort when devtools is closed. */
-const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 50));
+/**
+ * Yield to the main thread between paginated requests to avoid browser
+ * throttling/abort when devtools is closed. A 0ms macrotask still yields the
+ * event loop without paying a fixed per-page delay (Phase 9, step 1).
+ */
+const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 0));
 
 interface ReviewComment {
     body: string;

@@ -27,21 +27,29 @@ It is hosted at https://vivekkodira.github.io/github-issue-graph/
 2. Click the "Render" button to fetch and display your repository data
 
 ## How it works
-* If the user has entered a projectID, GraphQL calls are made to Github's API endpoints
-* If the user has only entered a repository, REST calls are made instead
-* The response is normalised into a flat array & stored in localStorage
-* This flattened array is then parsed & massaged by the various graphs to display various visualisations
+
+This is a client-side-only single-page app (React 19 + Vite + TypeScript) — there is no backend. The browser calls the GitHub API directly and stores everything locally.
+
+* If the user has entered a Project ID, GraphQL calls are made to GitHub's API (`projectFetcher.ts`); if only a repository is entered, REST calls are made instead (`issueFetcher.js`). Pull requests are fetched separately (`prFetcher.ts`).
+* Each response is normalised into a single flat `TaskFormat` shape by `taskConverter.ts`, so every chart consumes the same structure regardless of the source API.
+* The normalised tasks and PRs are stored in **RxDB** (backed by IndexedDB via the Dexie storage adapter) in the `tasks` and `prs` collections.
+* Chart components subscribe **reactively** to the RxDB collections and re-render when the data changes. Filtering is done with reactive RxDB Mango queries (`mangoQueryBuilder.ts`).
+* App configuration (repo, token, optional OpenAI key, planned effort/date) is the only thing kept in `localStorage`; fetched data lives in IndexedDB. Raw API responses are also cached locally to avoid refetching.
 
 ```mermaid
 flowchart TD
     A[User Input] -->|Project ID Entered| B[GraphQL Calls to GitHub API]
     A -->|Only Repository Entered| C[REST Calls to GitHub API]
-    B --> D[Response Normalized into Flat Array]
+    A --> P[REST Calls for Pull Requests]
+    B --> D[Normalized into flat TaskFormat]
     C --> D
-    D --> E[Stored in localStorage]
-    E --> F[Parsed and Massaged by Graphs]
+    P --> D
+    D --> E[Stored in RxDB / IndexedDB]
+    E -->|Reactive subscriptions + Mango query filters| F[Parsed and Massaged by Charts]
     F --> G[Various Visualizations Displayed]
 ```
+
+See [`docs/RXDB_MIGRATION.md`](docs/RXDB_MIGRATION.md) for details on the data layer.
 
 ## Dashboard Tabs
 

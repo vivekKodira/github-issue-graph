@@ -1,7 +1,7 @@
 export const prQuery = `
 query ($owner: String!, $repo: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
-    pullRequests(first: 50, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+    pullRequests(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
       totalCount
       nodes {
         id

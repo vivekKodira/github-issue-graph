@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   VStack,
   Box,
@@ -8,10 +8,9 @@ import {
   Input,
   Progress,
 } from "@chakra-ui/react";
-import fetchProjectDetails from "@/util/projectFetcher";
-import fetchPRs from "@/util/prFetcher";
 import { useRxDB } from "@/context/RxDBContext";
-import { bulkInsertTasks, bulkInsertPRs, taskFromRxDBFormat, prFromRxDBFormat, destroyDatabase } from "@/db/rxdb";
+import { useRepoData } from "@/context/RepoDataContext";
+import { destroyDatabase } from "@/db/rxdb";
 import { StatusChart } from "@/components/ui/ECharts/StatusChart";
 import { SprintChart } from "@/components/ui/ECharts/SprintChart";
 import { CompletionChart } from "@/components/ui/ECharts/CompletionChart";
@@ -28,7 +27,6 @@ import { ReviewQualityChart } from "../ECharts/ReviewQualityChart";
 import { SprintVelocityChart } from "../ECharts/SprintVelocityChart";
 import { IssueGraph } from "@/components/ui/IssueGraph/IssueGraph";
 import { ReviewWordCloudChart } from "../ECharts/ReviewWordCloudChart";
-import { PROJECT_KEYS } from "@/config/projectKeys";
 import { useProjectKeys } from "@/context/ProjectKeysContext";
 import { ReviewerPieCharts } from "../ECharts/ReviewerPieCharts";
 import { ReviewerLineCharts } from "../ECharts/ReviewerLineCharts";
@@ -37,70 +35,12 @@ import { Insights } from "../ECharts/Insights";
 import { EffortPredictionChart } from "../ECharts/EffortPredictionChart";
 import { IssueAnalysisDashboardV2 } from "../ECharts/IssueAnalysisDashboardV2";
 import { DateRangeFilterStrip } from "../ECharts/DateRangeFilterStrip";
-import { appendRenderLog, getRenderLog } from "@/util/renderDebugLog";
-
-// Debug flag - controlled by localStorage
-// To enable: Open browser console and run: localStorage.setItem('ENABLE_DEBUG', 'true')
-// To disable: localStorage.removeItem('ENABLE_DEBUG')
-const ENABLE_DEBUG = () => localStorage.getItem('ENABLE_DEBUG') === 'true';
-
-const debugDownloadData = (data: unknown[], filename: string) => {
-  if (!ENABLE_DEBUG()) return;
-  
-  console.log(`Debug: ${filename} (first item):`, data[0]);
-  console.log(`Debug: All fields in first item:`, Object.keys(data[0] || {}));
-  
-  const dataStr = JSON.stringify(data, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
-const fetchPlannedTaskCompletedCount = (tasks) => {
-  const completedTasks = tasks.filter((task) => task.Status === "Done");
-  return completedTasks.length / tasks.length;
-};
-
-const fetchPlannedTaskCompletedData = (tasks, projectKeys) => {
-  const completedTasks = tasks.filter((task) => task.Status === "Done");
-  const totalEffort = completedTasks.reduce((sum, task) => {
-    return sum + (task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value] || 0);
-  }, 0);
-
-  const totalPlannedEffort = tasks.reduce((sum, task) => {
-    return sum + (task[projectKeys[PROJECT_KEYS.ESTIMATE_DAYS].value] || 0);
-  }, 0);
-
-  if (totalPlannedEffort == 0) {
-    return -1;
-  }
-  return totalEffort / totalPlannedEffort;
-};
-
-const fetchoverAllCompletedData = (
-  tasks,
-  plannedEffortForProject,
-  projectKeys
-) => {
-  const completedTasks = tasks.filter((task) => task.Status === "Done");
-  const totalEffort = completedTasks.reduce((sum, task) => {
-    return sum + (task[projectKeys[PROJECT_KEYS.ACTUAL_DAYS].value] || 0);
-  }, 0);
-  if (plannedEffortForProject == 0) {
-    return -1;
-  }
-  return totalEffort / plannedEffortForProject;
-};
-
-interface Insight {
-  text: string;
-  icon: React.ComponentType;
-  severity: number;
-}
+import { getRenderLog } from "@/util/renderDebugLog";
+import {
+  fetchPlannedTaskCompletedCount,
+  fetchPlannedTaskCompletedData,
+  fetchoverAllCompletedData,
+} from "@/util/completionMetrics";
 
 export const ProjectDashboard = ({
   repoOwner,
@@ -112,21 +52,22 @@ export const ProjectDashboard = ({
   plannedEndDate,
 }) => {
   const { projectKeys } = useProjectKeys();
-  const { db, isReady: isDbReady } = useRxDB();
-  const [loading, setLoading] = useState(false);
-  const [flattenedData, setFlattenedData] = useState(null);
-  const [prs, setPRs] = useState([]);
+  const { isReady: isDbReady } = useRxDB();
+  const {
+    flattenedData,
+    prs,
+    loading,
+    prProgress,
+    insights,
+    fetch,
+    addInsights,
+  } = useRepoData();
   const [searchTerm, setSearchTerm] = useState("");
-  const [insights, setInsights] = useState<Insight[]>([]);
-  const insightsRef = useRef<Insight[]>([]);
   const isButtonDisabled =
     !repoOwner || (!repository && !project) || !githubToken || !isDbReady;
 
-  const [plannedTaskCompletionData, setPlannedTaskCompletionData] = useState(0);
-  const [overallTaskCompletionData, setOverallTaskCompletionData] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
   const [overviewDateFilteredData, setOverviewDateFilteredData] = useState([]);
-  const [prProgress, setPrProgress] = useState<{ fetched: number; total: number } | null>(null);
 
   const handleOverviewFilteredData = useCallback((filtered: unknown[]) => {
     setOverviewDateFilteredData(filtered as never[]);
@@ -147,141 +88,12 @@ export const ProjectDashboard = ({
     height: "500px",
   }), []);
 
-  const handleClick = async () => {
-    if (!isDbReady) {
-      console.error('Database is not ready');
-      return;
-    }
-
-    setLoading(true);
-    setPrProgress(null);
-    appendRenderLog("Render started");
-    try {
-      // Clear insights before fetching new data
-      setInsights([]);
-      insightsRef.current = [];
-
-      const [flattenedTasks, fetchedPRs] = await Promise.all([
-        fetchProjectDetails({
-          projectID: project,
-          repoOwner: repoOwner,
-          repository: repository,
-          githubToken: githubToken,
-        }),
-        fetchPRs({
-          repoOwner: repoOwner,
-          repository: repository,
-          githubToken: githubToken,
-          onProgress: (fetched, total) => setPrProgress({ fetched, total }),
-        })
-      ]);
-
-      // Store tasks in RxDB
-      if (flattenedTasks && flattenedTasks.length > 0) {
-        debugDownloadData(flattenedTasks, 'flattened_tasks_debug.json');
-        
-        await bulkInsertTasks(flattenedTasks);
-        
-        // Update state for immediate use (the RxDB subscription will also update it)
-        setFlattenedData(flattenedTasks);
-        setPlannedTaskCompletionData(
-          fetchPlannedTaskCompletedData(flattenedTasks, projectKeys)
-        );
-        setOverallTaskCompletionData(
-          fetchoverAllCompletedData(
-            flattenedTasks,
-            plannedEffortForProject,
-            projectKeys
-          )
-        );
-      }
-
-      // Store PRs in RxDB
-      if (fetchedPRs && fetchedPRs.length > 0) {
-        await bulkInsertPRs(fetchedPRs);
-        
-        // Update state for immediate use
-        console.log('PRs data fetched and stored, updating state');
-        setPRs(fetchedPRs);
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-      appendRenderLog(`Render error: ${msg}`);
-      console.error('Error fetching data:', error);
-    } finally {
-      appendRenderLog("Render finished");
-      setLoading(false);
-      setPrProgress(null);
-    }
-  };
+  const handleClick = fetch;
+  const handleInsightsGenerated = addInsights;
 
   const handleViewDebugLog = useCallback(() => {
     const log = getRenderLog();
     alert(log || "(empty)\n\nYou can also run in console:\nlocalStorage.getItem('github-issue-graph-render-log')");
-  }, []);
-
-  // Subscribe to RxDB data changes
-  useEffect(() => {
-    if (!db || !isDbReady) return;
-
-    // Subscribe to tasks
-    const tasksSubscription = db.tasks
-      .find()
-      .sort({ updatedAt: 'desc' })
-      .$
-      .subscribe((docs) => {
-        if (docs.length > 0) {
-          const tasks = docs.map(taskFromRxDBFormat);
-          setFlattenedData(tasks);
-          setPlannedTaskCompletionData(
-            fetchPlannedTaskCompletedData(tasks, projectKeys)
-          );
-          setOverallTaskCompletionData(
-            fetchoverAllCompletedData(
-              tasks,
-              plannedEffortForProject,
-              projectKeys
-            )
-          );
-        }
-      });
-
-    // Subscribe to PRs
-    const prsSubscription = db.prs
-      .find()
-      .sort({ updatedAt: 'desc' })
-      .$
-      .subscribe((docs) => {
-        if (docs.length > 0) {
-          const prData = docs.map(prFromRxDBFormat);
-          setPRs(prData);
-        }
-      });
-
-    return () => {
-      tasksSubscription.unsubscribe();
-      prsSubscription.unsubscribe();
-    };
-  }, [db, isDbReady, projectKeys, plannedEffortForProject]);
-
-  const handleInsightsGenerated = useCallback((newInsights: Insight[]) => {
-    // Ensure all insights have the required severity property
-    const validInsights = newInsights.map(insight => ({
-      ...insight,
-      severity: insight.severity || 0 // Default to neutral if not provided
-    }));
-
-    // Update insights immediately
-    setInsights(prevInsights => {
-      // Filter out any insights that are already in the current insights
-      const uniqueNewInsights = validInsights.filter(newInsight => 
-        !prevInsights.some(existingInsight => 
-          existingInsight.text === newInsight.text
-        )
-      );
-      
-      return [...prevInsights, ...uniqueNewInsights];
-    });
   }, []);
 
   const handleTabChange = useCallback((details: { value: string }) => {
@@ -519,7 +331,7 @@ export const ProjectDashboard = ({
                   </SimpleGrid>
                   <Box>
                     <ReviewWordCloudChart
-                      prs={memoizedPRs}
+                      prs={memoizedPRs as never[]}
                       styleOptions={styleOptions}
                       openaiApiKey={openaiApiKey}
                     />
@@ -539,7 +351,7 @@ export const ProjectDashboard = ({
                 />
               </Box>
               <Box p={6} borderRadius="lg" borderWidth="1px">
-                <IssueGraph issues={flattenedData} prs={memoizedPRs} />
+                <IssueGraph issues={flattenedData as never[]} prs={memoizedPRs as never[]} />
               </Box>
             </Tabs.Content>
 

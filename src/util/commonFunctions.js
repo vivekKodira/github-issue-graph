@@ -3,7 +3,10 @@ import prsSample from '../samples/prs.json';
 import { getDatabase } from '../db/rxdb';
 
 const CACHE_VERSION = '1.0';
-const CACHE_TTL_HOURS = 1;
+// Bumped to effectively a year so the cache does not expire and re-trigger a
+// full fetch during the question-driven-UX rework. Revisit when Phase 9
+// (incremental sync / stale-while-revalidate) lands.
+const CACHE_TTL_HOURS = 24 * 365;
 
 function isCacheInvalid(localIssuesCache) {
   let cacheInvalid = true;
